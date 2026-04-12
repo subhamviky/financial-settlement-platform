@@ -1,0 +1,36 @@
+server:
+    port: 8081
+spring:
+    application:
+        name: settlement-orchestrator
+    datasource:
+        url: jdbc:postgresql://localhost:5432/settlement_db
+        username: settlement_user
+        password: settlement_pass
+        driver-class-name: org.postgresql.Driver
+    jpa:
+        hibernate:
+        ddl-auto: update
+        show-sql: false
+        database-platform: org.hibernate.dialect.PostgreSQLDialect
+    data:
+    redis:
+        host: localhost
+        port: 6379
+    kafka:
+        bootstrap-servers: localhost:9092
+        producer:
+            key-serializer: org.apache.kafka.common.serialization.StringSerializer
+            value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+management:
+endpoints:
+web:
+exposure:
+include: health,info,metrics
+endpoint:
+health:
+show-details: always
+logging:
+level:
+com.settlement: DEBUG
+org.springframework.kafka: INFO

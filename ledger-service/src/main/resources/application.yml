@@ -1,0 +1,25 @@
+server:
+port: 8082
+spring:
+application:
+name: ledger-service
+datasource:
+url: jdbc:postgresql://localhost:5432/ledger_db
+username: ledger_user
+password: ledger_pass
+jpa:
+hibernate:
+ddl-auto: update
+database-platform: org.hibernate.dialect.PostgreSQLDialect
+kafka:
+bootstrap-servers: localhost:9092
+consumer:
+group-id: ledger-service-group
+auto-offset-reset: earliest
+key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+management:
+endpoints:
+web:
+exposure:
+include: health,info,metrics
