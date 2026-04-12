@@ -1,0 +1,14 @@
+# .gitignore
+target/
+*.class
+*.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+.idea/
+*.iml
+.vscode/
+!.vscode/settings.json
+!.vscode/launch.json
+.DS_Store
+*.log
+docker-volumes/
