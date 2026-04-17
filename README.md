@@ -70,6 +70,60 @@ INITIATED → LEDGER_PENDING → LEDGER_UPDATED → COMPLETED
 Every architectural decision in this platform is grounded in a principle proven at $350M+ SAP TM
 financial scale: **the system must be incapable of incorrect states by design**, not merely
 defended against them by runtime guards.
+
+## Why This Domain Justifies This Level of Control
+ 
+The architectural controls in this platform — Saga orchestration, `@Idempotent` AOP,
+double-entry DB invariant, business-status gates, RAG-powered dispute audit — are not
+default choices applied to every payment system. They are **proportional responses**
+to the complexity of the domain this platform models.
+ 
+### The Complexity Justification
+ 
+This platform is modelled on SAP TM Charge Management, which presents three conditions
+that together mandate business-layer financial integrity controls:
+ 
+**1. Input mutability** — charges are not fixed at creation.
+Rate tables, calculation rules, and agreement sheets determine amounts dynamically.
+Carrier invoices can be revised after initial submission.
+A revised amount for the same charge must be treated as a valid update,
+not a duplicate — which requires a *business identity key* (analogous to `REF_ELEM_KEY`),
+not a technical hash.
+ 
+**2. Output ambiguity** — the same charge type and amount can carry different business meaning
+depending on calculation level and resolution level.
+Infrastructure-layer deduplication (by payload hash) would silently discard valid,
+distinct charges. The system must understand *context*, not just *value*.
+ 
+**3. Regulatory and audit exposure** — incorrect postings affect vendor payments,
+regulatory reporting, and carrier-shipper contractual obligations.
+The cost of a wrong post is high enough to justify the engineering investment
+in immutable ledger design, compensation handlers, and AI-powered compliance audit.
+ 
+### When These Controls Would Be Over-Engineering
+ 
+A standard SaaS subscription billing flow — fixed monthly amount, same account,
+no mid-flight revisions — does not need any of this.
+A standard API-layer idempotency key and infrastructure-level message deduplication
+are sufficient. Adding Saga orchestration and double-entry ledger constraints
+to that flow would increase latency, operational complexity, and testing surface area
+with no business benefit.
+ 
+The rule: **match control weight to domain complexity.**
+ 
+| Factor | This Platform | Simple Payment Flow |
+|---|---|---|
+| Input mutability | High — rates, tables, revised invoices | None — fixed amount |
+| Output ambiguity | High — same charge type, different meaning by level | None |
+| Audit exposure | High — vendor payments, regulatory | Low |
+| **Appropriate control layer** | **Business logic** | **API / infrastructure** |
+| Saga + compensation | ✅ Justified | ❌ Over-engineering |
+| @Idempotent AOP | ✅ Justified | ❌ API-key header is enough |
+| Double-entry DB invariant | ✅ Justified | ❌ Standard unique constraint is enough |
+| RAG-powered audit | ✅ Justified | ❌ Operational overhead with no ROI |
+ 
+> *The engineering choices in this repo are deliberate, not default.*
+> *They exist because the domain demands them.*
  
 ### The SAP TM Origin
  
