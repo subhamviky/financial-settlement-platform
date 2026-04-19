@@ -35,12 +35,10 @@ A production-realistic financial settlement platform that translates **SAP BOPF 
    Idempotency guard (UNIQUE index)        ChromaDB policy retrieval
    Reversal on compensation                LLM anomaly detection (GPT-4o / Ollama)
                                            AuditLog → PostgreSQL + S3 archive
-
+```
 > This project implements E2A Framework patterns.
 > See [github.com/subhamviky/e2a-framework](https://github.com/subhamviky/e2a-framework)
 > for the full Clean Architecture mapping and NFR-First methodology.
-```
-
 ### Settlement State Machine
 
 ```
