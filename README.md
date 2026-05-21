@@ -2,12 +2,21 @@
 
 > **Java 21 · Spring Boot 3.x · Kafka · Redis · PostgreSQL · Spring AI + RAG · AWS EKS**
 
-A production-realistic financial settlement platform that translates **SAP BOPF architecture** into cloud-native Java microservices on AWS — demonstrating Staff-level engineering capability across distributed systems design, event-driven architecture, and AI-powered compliance.
+A production-realistic financial settlement platform that translates **SAP BOPF/RAP architecture** into cloud-native Java microservices on AWS — demonstrating Staff-level engineering capability across distributed systems design, event-driven architecture, and AI-powered compliance.
 
-[![Build](https://github.com/subhamviky/financial-settlement-platform/actions/workflows/deploy.yml/badge.svg)](https://github.com/subhamviky/financial-settlement-platform/actions)
 [![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)]()
 [![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.x-6DB33F?logo=spring)]()
 [![AWS](https://img.shields.io/badge/AWS-EKS%20%7C%20RDS%20%7C%20SQS-FF9900?logo=amazonaws)]()
+
+---
+
+## 🔄 Architectural Evolution Path
+
+> **Status: Phase 2 (In-Progress refactoring to E2A alignment)**
+
+This repository operates under an intentional **"Spike-and-Stabilize"** engineering pattern, functioning as the primary Java Reference Runtime validating that first-principles enterprise architecture patterns remain completely portable across multiple runtime stacks.
+* **Phase 1 (Stabilized):** Successfully deployed a robust, core Java/Spring Boot ledger engine with reliable message-driven decoupling, double-entry DB invariants, and asynchronous Saga orchestrations.
+* **Phase 2 (Active):** Wrapping distributed transaction validators into E2A-compliant tool models and leveraging Spring AI components to map out declarative semantic policy lookups directly back to the [E2A Architecture Framework Specification](https://github.com/subhamviky/e2a-framework).
 
 ---
 
@@ -36,9 +45,8 @@ A production-realistic financial settlement platform that translates **SAP BOPF 
    Reversal on compensation                LLM anomaly detection (GPT-4o / Ollama)
                                            AuditLog → PostgreSQL + S3 archive
 ```
-> This project implements E2A Framework patterns.
-> See [github.com/subhamviky/e2a-framework](https://github.com/subhamviky/e2a-framework)
-> for the full Clean Architecture mapping and NFR-First methodology.
+> Derived from the **[E2A Framework Specifications](https://github.com/subhamviky/e2a-framework)**
+
 ### Settlement State Machine
 
 ```
@@ -51,17 +59,19 @@ INITIATED → LEDGER_PENDING → LEDGER_UPDATED → COMPLETED
 
 ---
 
-## BOPF → Cloud-Native Mapping
+---
 
-| SAP BOPF Concept | Microservice | Implementation |
-|---|---|---|
-| Settlement BO | Settlement Orchestrator | Saga engine · `@Idempotent` AOP · Redis idempotency |
-| Ledger BO | Ledger Service | Double-entry posting · Kafka consumer · reversal entries |
-| Audit BO | Audit-AI Service | Spring AI RAG · LLM inference · S3 archive |
-| Action Framework | `SagaStep` interface | `execute()` + `compensate()` contract |
-| Determination (guard) | `SettlementStateTransitions` | Illegal transitions throw at runtime |
-| Cross-BO Event Framework | Kafka topics + `MessagingPort` | `settlement.{initiated,completed,failed,compensated}` |
-| Lock Management | `@Idempotent` + Redis SETNX | Atomic check-and-set prevents concurrent duplicates |
+## BOPF/RAP → Cloud-Native Mapping
+
+| SAP BOPF/RAP Concept | Microservice Component | E2A Cloud-Native Implementation |
+| :--- | :--- | :--- |
+| **Settlement BO** | Settlement Orchestrator | Saga orchestration engine • `@Idempotent` AOP • Redis distributed locking. |
+| **Ledger BO** | Ledger Service | Double-entry posting patterns • Kafka asynchronous consumer • Reversal record streams. |
+| **Audit BO** | Audit-AI Service | Spring AI RAG orchestration • Local/Cloud LLM inference engines • S3 compliance archive. |
+| **Action Framework** | `SagaStep` interface | Standardized `execute()` + `compensate()` transaction lifecycle contracts. |
+| **Determination / Validation** | `SettlementStateTransitions` | Business status rules that programmatically block invalid states at runtime. |
+| **Cross-BO Event Framework** | Kafka topics + `MessagingPort` | Managed broker event channels: `settlement.{initiated,completed,failed,compensated}`. |
+| **Lock Management** | `@Idempotent` + Redis SETNX | Atomic distributed check-and-set routines preventing concurrent message duplicates. |
 
 ---
 
@@ -69,97 +79,29 @@ INITIATED → LEDGER_PENDING → LEDGER_UPDATED → COMPLETED
  
 > *Idempotency and reconciliation are business features, not just technical safeguards.*
  
-Every architectural decision in this platform is grounded in a principle proven at $350M+ SAP TM
-financial scale: **the system must be incapable of incorrect states by design**, not merely
-defended against them by runtime guards.
+Every architectural decision in this platform is grounded in a principle proven at $350M+ SAP TM financial scale: **the system must be incapable of incorrect states by design**, not merely defended against them by reactive runtime exception blocks.
 
-## Why This Domain Justifies This Level of Control
- 
-The architectural controls in this platform — Saga orchestration, `@Idempotent` AOP,
-double-entry DB invariant, business-status gates, RAG-powered dispute audit — are not
-default choices applied to every payment system. They are **proportional responses**
-to the complexity of the domain this platform models.
- 
 ### The Complexity Justification
+This platform models a high-scale transaction environment (resembling SAP TM Charge Management), presenting three core real-world challenges that mandate business-layer financial integrity controls:
  
-This platform is modelled on SAP TM Charge Management, which presents three conditions
-that together mandate business-layer financial integrity controls:
- 
-**1. Input mutability** — charges are not fixed at creation.
-Rate tables, calculation rules, and agreement sheets determine amounts dynamically.
-Carrier invoices can be revised after initial submission.
-A revised amount for the same charge must be treated as a valid update,
-not a duplicate — which requires a *business identity key* (analogous to `REF_ELEM_KEY`),
-not a technical hash.
- 
-**2. Output ambiguity** — the same charge type and amount can carry different business meaning
-depending on calculation level and resolution level.
-Infrastructure-layer deduplication (by payload hash) would silently discard valid,
-distinct charges. The system must understand *context*, not just *value*.
- 
-**3. Regulatory and audit exposure** — incorrect postings affect vendor payments,
-regulatory reporting, and carrier-shipper contractual obligations.
-The cost of a wrong post is high enough to justify the engineering investment
-in immutable ledger design, compensation handlers, and AI-powered compliance audit.
- 
-### When These Controls Would Be Over-Engineering
- 
-A standard SaaS subscription billing flow — fixed monthly amount, same account,
-no mid-flight revisions — does not need any of this.
-A standard API-layer idempotency key and infrastructure-level message deduplication
-are sufficient. Adding Saga orchestration and double-entry ledger constraints
-to that flow would increase latency, operational complexity, and testing surface area
-with no business benefit.
- 
-The rule: **match control weight to domain complexity.**
- 
-| Factor | This Platform | Simple Payment Flow |
-|---|---|---|
-| Input mutability | High — rates, tables, revised invoices | None — fixed amount |
-| Output ambiguity | High — same charge type, different meaning by level | None |
-| Audit exposure | High — vendor payments, regulatory | Low |
-| **Appropriate control layer** | **Business logic** | **API / infrastructure** |
-| Saga + compensation | ✅ Justified | ❌ Over-engineering |
-| @Idempotent AOP | ✅ Justified | ❌ API-key header is enough |
-| Double-entry DB invariant | ✅ Justified | ❌ Standard unique constraint is enough |
-| RAG-powered audit | ✅ Justified | ❌ Operational overhead with no ROI |
- 
-> *The engineering choices in this repo are deliberate, not default.*
-> *They exist because the domain demands them.*
- 
-### The SAP TM Origin
- 
-In SAP Transportation Management, financial integrity is enforced structurally:
- 
-**Line-Element Key** creates a deterministic one-to-one mapping between every
-source charge and its settlement posting. When a carrier revises an invoice amount, the system
-routes it as a valid business update — not a duplicate — because the key is a business identity,
-not a technical dedup hash.
- 
-**"Completely Invoiced" status gate** means the Finance Ledger cannot receive a posting until the
-business has explicitly confirmed the invoice is final. The ledger is immutable by architectural
-contract, not by a `try/catch` block.
- 
-**Dispute Management** is a first-class business workflow that mediates charge deltas and unblocks
-final postings — not an error handler, not a retry loop. Discrepancies are expected; the
-architecture provides a governed path to resolve them.
- 
-### How This Platform Implements the Same Principles
- 
-| SAP TM Principle | This Platform's Implementation |
-|---|---|
-| Line-Element Key — deterministic business identity | `X-Idempotency-Key` header + `@Idempotent` AOP with Redis `SETNX` — the key is supplied by the business (client), not generated by infrastructure |
-| "Completely Invoiced" gate — business status blocks ledger write | `SettlementState.COMPLETED` is the **only** state from which ledger finalisation can occur; `SettlementStateTransitions` guards reject all other paths at runtime |
-| Revised amount = valid update, not duplicate error | Idempotency cache returns the **stored response** for a known key — revised retry with same key gets the original result, not a conflict error |
-| Dispute as first-class reconciliation workflow | `Audit-AI Service`: Spring AI RAG pipeline retrieves policy context and the LLM reasons about whether the transaction is compliant — anomalies enter a structured review path, not a dead-letter queue |
-| Ledger immutability by contract | `UNIQUE INDEX` on `(settlement_id, direction, entry_type)` — the database enforces the double-entry invariant. Corrections create **reversal entries**, never updates |
-| Compensation as business rollback, not error recovery | Every `SagaStep` implements `compensate()` — compensation is a designed business operation (reverse the posting), not a catch block |
- 
-The outcome: every settlement either completes correctly or reaches a governed compensated state.
-There is no "partially posted" or "ambiguously settled" condition.
- 
-**Correct by Design** — regardless of the underlying technology stack.
+1. **Input Mutability:** Invoices and calculation agreements are fluid. A revised amount for an identical transaction must be processed as a valid business update rather than an infrastructure duplicate. This requires an object-oriented business key mapping to an enterprise **Line-Element Key (`REF_ELEM_KEY`)** mechanism.
+2. **Output Ambiguity:** Distinct line items can share matching payload values while carrying highly unique business meanings across different logistics levels. Hash-based deduplication algorithms would silently discard valid financial records. The platform must reason about system *context*, not just basic parameters.
+3. **Audit and Compliance Exposure:** Data anomalies directly disrupt ledger compliance, carrier settlements, and regulatory obligations, justifying strict programmatic safeguards over generic retry loops.
 
+### Proportional Governance Weights
+The platform maps control mechanisms directly to domain risks, avoiding over-engineering for simpler patterns:
+
+| Structural Variable | This Platform | Simple SaaS Subscription Flow |
+| :--- | :--- | :--- |
+| **Input Mutability** | High (rate table drifts, amended carrier billing invoices) | None (static, recurring monthly amounts) |
+| **Output Ambiguity** | High (matching line item values with unique ledger assignments) | None (predictable single ledger target mappings) |
+| **Audit Exposure** | High (B2B vendor payables, strict regulatory reporting blocks) | Low (isolated standard internal invoice receipts) |
+| **Appropriate Control Layer** | **Core Business Domain Logic** | **Edge API Gateway / Infrastructure Layer** |
+| **Saga + Compensation** | ✅ Justified to avoid data fractures | ❌ Over-engineering (basic rollback is sufficient) |
+| **@Idempotent AOP** | ✅ Justified to protect business context | ❌ Over-engineering (standard payload header keys match) |
+| **Double-Entry DB Invariant** | ✅ Justified to enforce accounting balances | ❌ Over-engineering (standard unique constraint matches) |
+
+---
 
 ## Key Engineering Decisions
 
@@ -172,13 +114,11 @@ There is no "partially posted" or "ambiguously settled" condition.
 )
 @Transactional
 public SettlementResponse initiateSettlement(SettlementRequest request) {
-    // AOP intercepts BEFORE this executes:
-    //   → Redis SETNX check (cache hit = return stored response, skip logic)
-    //   → Cache miss = proceed, then store result in Redis with 24h TTL
+    // AOP Aspect intercepts BEFORE this execution path:
+    //  → Redis SETNX check (cache hit instantly returns stored payload, bypassing database logic)
+    //  → Cache miss = proceeds to execute, storing final response in Redis with a strict 24h TTL
 }
 ```
-
-Redis `SETNX` + TTL. Atomic — race-condition safe. SpEL key expression keeps annotation reusable across any method.
 
 ### 2. Saga with Compensation
 
@@ -270,7 +210,7 @@ financial-settlement-platform/
 | Docker Desktop | Latest | docker.com |
 | VS Code | Latest | with Java Extension Pack + Spring Boot Tools |
 
-### Start
+### Initialization Commands
 
 ```bash
 # 1. Clone
