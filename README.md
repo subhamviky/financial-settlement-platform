@@ -303,9 +303,9 @@ kubectl rollout status deployment/settlement-orchestrator -n settlement
 
 ---
 
-## Portfolio Context
+## Architectural Spikes & Reference Runtimes
 
-This project is one of three active AWS portfolios validating enterprise distributed-systems expertise in cloud-native form:
+E2A Java reference spike — Saga, @Idempotent AOP, double-entry ledger, Spring AI RAG:
 
 | Project | Stack | Focus |
 |---|---|---|
