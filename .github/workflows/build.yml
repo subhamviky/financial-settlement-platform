@@ -22,20 +22,17 @@ jobs:
         image: redis:7
         ports:
           - 6379:6379
-      zookeeper:
-        image: confluentinc/cp-zookeeper:7.6.0
-        env:
-          ZOOKEEPER_CLIENT_PORT: 2181
-        ports:
-          - 2181:2181
       kafka:
-        image: confluentinc/cp-kafka:7.6.0
+        image: bitnami/kafka:3.7
         env:
-          KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_CFG_ZOOKEEPER_CONNECT: localhost:2181
+          KAFKA_CFG_LISTENERS: PLAINTEXT://:9092
         ports:
           - 9092:9092
+      zookeeper:
+        image: bitnami/zookeeper:3.9
+        ports:
+          - 2181:2181
 
     steps:
       - uses: actions/checkout@v4
