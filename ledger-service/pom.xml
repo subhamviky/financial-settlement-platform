@@ -7,20 +7,26 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>com.settlement</groupId>
-    <artifactId>financial-settlement-platform</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
-    <relativePath>../pom.xml</relativePath>
+      <groupId>com.settlement</groupId>
+      <artifactId>financial-settlement-platform</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
+      <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>ledger-service</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
 
   <dependencies>
+    <!-- Shared library -->
     <dependency>
       <groupId>com.settlement</groupId>
       <artifactId>common-lib</artifactId>
       <version>1.0.0-SNAPSHOT</version>
     </dependency>
+
+
+    <!-- Spring Boot basics -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
@@ -33,24 +39,33 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
+
+    <!-- Database driver -->
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
       <scope>runtime</scope>
     </dependency>
+
+    <!-- Messaging -->
     <dependency>
       <groupId>org.springframework.kafka</groupId>
       <artifactId>spring-kafka</artifactId>
     </dependency>
+
+    <!-- Lombok -->
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
       <optional>true</optional>
     </dependency>
+
+    <!-- Testing -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>
+
 </project>
