@@ -7,11 +7,12 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-  <groupId>com.settlement</groupId>
-  <artifactId>financial-settlement-platform</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
-  <relativePath>../..</relativePath>
-</parent>
+    <groupId>com.settlement</groupId>
+    <artifactId>financial-settlement-platform</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <relativePath>../..</relativePath>
+  </parent>
+
 
 
   <artifactId>settlement-orchestrator</artifactId>
@@ -53,9 +54,11 @@
       <optional>true</optional>
     </dependency>
     <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-test</artifactId>
-      <scope>test</scope>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-dependencies</artifactId>
+      <version>2024.0.0</version>
+      <type>pom</type>
+      <scope>import</scope>
     </dependency>
   </dependencies>
 </project>
