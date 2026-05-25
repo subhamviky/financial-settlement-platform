@@ -1,0 +1,29 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: audit-ai-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/audit_db
+    username: audit_user
+    password: audit_pass
+  jpa:
+    hibernate:
+      ddl-auto: update
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: audit-service-group
+      auto-offset-reset: earliest
+
+
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:placeholder} # Will configure in Week 7
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
