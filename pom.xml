@@ -17,7 +17,6 @@
     <version>3.4.2</version>
   </parent>
 
-
   <modules>
     <module>common-lib</module>
     <module>settlement-orchestrator</module>
@@ -28,8 +27,8 @@
 
   <properties>
     <java.version>21</java.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
-
 
   <dependencyManagement>
     <dependencies>
@@ -41,27 +40,28 @@
         <scope>import</scope>
       </dependency>
     </dependencies>
-</dependencyManagement>
+  </dependencyManagement>
 
-<repositories>
-  <repository>
-    <id>central</id>
-    <url>https://repo.maven.apache.org/maven2</url>
-  </repository>
-</repositories>
+  <repositories>
+    <repository>
+      <id>central</id>
+      <url>https://repo.maven.apache.org/maven2</url>
+    </repository>
+  </repositories>
 
-<pluginManagement>
-  <plugins>
-    <plugin>
-      <groupId>org.apache.maven.plugins</groupId>
-      <artifactId>maven-compiler-plugin</artifactId>
-      <version>3.11.0</version>
-      <configuration>
-        <release>21</release>
-      </configuration>
-    </plugin>
-  </plugins>
-</pluginManagement>
-
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.11.0</version>
+          <configuration>
+            <release>21</release>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
 
 </project>
