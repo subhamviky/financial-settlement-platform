@@ -1,8 +1,10 @@
 # Maven build outputs
 target/
 
-# IDE configs
+# VS Code configs
 .vscode/
+
+# IntelliJ configs
 .idea/
 *.iml
 
