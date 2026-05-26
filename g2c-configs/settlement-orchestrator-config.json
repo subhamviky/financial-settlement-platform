@@ -1,0 +1,51 @@
+{
+  "generator": {
+    "generator_type": "e2a_inherited",
+    "runtime": "java",
+    "runtime_version": "21",
+    "platform": "aws",
+    "idempotency": true,
+    "async_mode": true,
+    "domain": "financial",
+    "team": "settlement-team",
+    "company": "subham-portfolio",
+    "agent_name": "SettlementOrchestratorAgent",
+    "abstract_class_source": "generate",
+    "abstract_class_config": {
+      "base_class_name": "BaseSettlementAgent",
+      "class_description": "E2A base for SAP BOPF Settlement BO — saga orchestration, Redis idempotency, Kafka event publishing",
+      "abstract_methods": [
+        "validateSettlementRequest",
+        "initiateSaga",
+        "publishSettlementEvent",
+        "handleCompensation"
+      ]
+    },
+    "user_prompt": "Generate a SettlementOrchestratorAgent that extends BaseSettlementAgent. It orchestrates a multi-step saga for financial settlement: idempotency check via Redis SETNX, saga step execution (LedgerDebit, LedgerCredit, Notification), state machine transitions (INITIATED -> LEDGER_PENDING -> COMPLETED), compensation on failure, and Kafka event publishing for each state change. Map to SAP BOPF Settlement BO pattern.",
+    "system_prompt_additions": "NFR: SagaCompensationMustBeIdempotent, RedisIdempotencyKeyTTL24h, KafkaProducerAcksAll, DoubleSpendProtectionViaAtomicSETNX, SettlementStateMachineGuardrails",
+    "mandatory_nfrs": [
+      "SagaCompensation",
+      "DoubleSpendProtection",
+      "AtomicIdempotencyKey"
+    ],
+    "output_path": "../financial-settlement-platform/settlement-orchestrator/",
+    "model_id": "claude-sonnet-4-20250514",
+    "critic_model_id": "claude-haiku-4-5-20251001"
+  },
+  "scaffold": {
+    "build_tool": "maven",
+    "project_name": "SettlementOrchestrator",
+    "package_name": "com.subham.settlement",
+    "include_docker": true,
+    "include_makefile": true,
+    "dependencies": [
+      "org.springframework.boot:spring-boot-starter-web",
+      "org.springframework.boot:spring-boot-starter-data-jpa",
+      "org.springframework.boot:spring-boot-starter-data-redis",
+      "org.springframework.kafka:spring-kafka",
+      "org.springframework.boot:spring-boot-starter-actuator",
+      "io.micrometer:micrometer-registry-prometheus",
+      "org.postgresql:postgresql"
+    ]
+  }
+}

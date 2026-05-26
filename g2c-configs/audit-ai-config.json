@@ -1,0 +1,54 @@
+{
+  "generator": {
+    "generator_type":          "e2a_inherited",
+    "runtime":                 "java",
+    "runtime_version":         "21",
+    "platform":                "aws",
+    "idempotency":             true,
+    "async_mode":              true,
+    "domain":                  "financial",
+    "team":                    "audit-team",
+    "company":                 "subham-portfolio",
+    "agent_name":              "AuditAIAgent",
+    "abstract_class_source":   "generate",
+    "abstract_class_config": {
+      "base_class_name":       "BaseAuditAgent",
+      "class_description":     "E2A base for SAP BOPF Audit BO — RAG-based anomaly detection, policy retrieval, LLM classification, S3 archival",
+      "abstract_methods": [
+        "embedTransactionDescription",
+        "retrievePolicyContext",
+        "classifyAnomaly",
+        "persistAuditLog",
+        "archiveToStorage"
+      ]
+    },
+    "user_prompt":             "Generate an AuditAIAgent that extends BaseAuditAgent. It is an async Kafka consumer of SettlementCompletedEvent. It runs a RAG pipeline: (1) embed the settlement transaction description using Spring AI EmbeddingClient, (2) similarity-search ChromaDB vector store for top-3 relevant financial policy document chunks, (3) send a structured LLM prompt (compliance officer role, transaction + policy context) to ChatClient, (4) parse the JSON LLM response {anomaly: bool, reason: string, severity: LOW|MEDIUM|HIGH}, (5) persist AuditLog entity to PostgreSQL, (6) on anomaly=true archive full audit JSON to S3. Implements SAP BOPF Audit BO pattern.",
+    "system_prompt_additions": "NFR: RAGPipelineIdempotency, LLMResponseMustBeStructuredJSON, AuditLogImmutable, S3ArchivalOnAnomaly, ChromaDBSimilaritySearchTop3",
+    "mandatory_nfrs": [
+      "RAGPipelineIdempotency",
+      "ImmutableAuditTrail",
+      "LLMStructuredOutput"
+    ],
+    "output_path":             "../financial-settlement-platform/audit-ai-service/",
+    "model_id":                "claude-sonnet-4-20250514",
+    "critic_model_id":         "claude-haiku-4-5-20251001"
+  },
+  "scaffold": {
+    "build_tool":              "maven",
+    "project_name":            "AuditAIService",
+    "package_name":            "com.subham.audit",
+    "include_docker":          true,
+    "include_makefile":        true,
+    "dependencies": [
+      "org.springframework.boot:spring-boot-starter-web",
+      "org.springframework.boot:spring-boot-starter-data-jpa",
+      "org.springframework.kafka:spring-kafka",
+      "org.springframework.boot:spring-boot-starter-actuator",
+      "org.springframework.ai:spring-ai-openai-spring-boot-starter",
+      "org.springframework.ai:spring-ai-chroma-store-spring-boot-starter",
+      "io.awspring.cloud:spring-cloud-aws-s3",
+      "io.micrometer:micrometer-registry-prometheus",
+      "org.postgresql:postgresql"
+    ]
+  }
+}

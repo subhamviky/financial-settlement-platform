@@ -1,0 +1,52 @@
+{
+  "generator": {
+    "generator_type":          "e2a_inherited",
+    "runtime":                 "java",
+    "runtime_version":         "21",
+    "platform":                "aws",
+    "idempotency":             true,
+    "async_mode":              true,
+    "domain":                  "financial",
+    "team":                    "ledger-team",
+    "company":                 "subham-portfolio",
+    "agent_name":              "LedgerPostingAgent",
+    "abstract_class_source":   "generate",
+    "abstract_class_config": {
+      "base_class_name":       "BaseLedgerAgent",
+      "class_description":     "E2A base for SAP BOPF Ledger BO — double-entry financial posting, idempotency, saga participant contract",
+      "abstract_methods": [
+        "validateLedgerEntry",
+        "postDebitEntry",
+        "postCreditEntry",
+        "postReversalEntry",
+        "checkIdempotencyGuard"
+      ]
+    },
+    "user_prompt":             "Generate a LedgerPostingAgent that extends BaseLedgerAgent. It is a Kafka saga participant: consumes SettlementInitiatedEvent, performs double-entry ledger posting (one DEBIT + one CREDIT per settlement) in a single @Transactional operation, enforces DB-level idempotency via UNIQUE INDEX on (settlement_id, direction, entry_type), publishes LEDGER_UPDATED event on success, and posts reversal entries on SettlementFailedEvent compensation. Implements SAP BOPF Ledger BO double-entry accounting invariant.",
+    "system_prompt_additions": "NFR: DoubleEntryLedgerInvariant, TransactionalIdempotency, SagaParticipantCompensation, AtLeastOnceKafkaConsumer, OptimisticLockingViaVersionAnnotation",
+    "mandatory_nfrs": [
+      "DoubleEntryLedgerInvariant",
+      "SagaCompensation",
+      "AtLeastOnceDelivery"
+    ],
+    "output_path":             "../financial-settlement-platform/ledger-service/",
+    "model_id":                "claude-sonnet-4-20250514",
+    "critic_model_id":         "claude-haiku-4-5-20251001"
+  },
+  "scaffold": {
+    "build_tool":              "maven",
+    "project_name":            "LedgerService",
+    "package_name":            "com.subham.ledger",
+    "include_docker":          true,
+    "include_makefile":        true,
+    "dependencies": [
+      "org.springframework.boot:spring-boot-starter-web",
+      "org.springframework.boot:spring-boot-starter-data-jpa",
+      "org.springframework.boot:spring-boot-starter-data-redis",
+      "org.springframework.kafka:spring-kafka",
+      "org.springframework.boot:spring-boot-starter-actuator",
+      "io.micrometer:micrometer-registry-prometheus",
+      "org.postgresql:postgresql"
+    ]
+  }
+}
