@@ -1,47 +1,27 @@
-# settlement-service
+# Cloud-Native Financial Settlement Platform
 
-> **E2A Java Reference Spike** — Spring Boot Microservice
+> `main` is built by **consuming** the E2A framework family: the AI-DLC pipeline scaffolds each
+> service (P0 + G2C + A2C), the settlement service realises E2A's Deterministic CQRS profile in
+> Java, and the audit service runs an E2A agent with retrieval over policy clauses.
 
-Built on the [E2A Architecture Framework](https://github.com/subhamviky/e2a-framework)
+| Service | Stack | Role |
+|---|---|---|
+| `settlement-service` | Java 21, Spring Boot 3.5, PostgreSQL (H2 locally) | System of record: CQRS command and query paths, double-entry ledger, saga with compensation, transactional outbox, event feed |
+| `audit-ai-service` | Python 3.12, FastAPI, E2A, DSA | Audits settlement outcomes: deterministic risk rules, confirmation against the system of record, policy-grounded explanations |
 
----
+Requirements and the step-by-step guide live in the private hub (`settlement/`). CI: `settlement-ci`.
 
-## Stack
+## Branches and tags
 
-![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5.7-6DB33F?logo=spring)
+| Branch / tag | Purpose |
+|---|---|
+| `main` | Framework-consumption build. |
+| `spike/v1-original` · tag `spike-v1` | Snapshot of the original spike work. Frozen. |
+| `pre-g2c-baseline` | Earlier baseline (Spring Boot skeletons). Frozen. |
+| `aidlc/settlement-service`, `aidlc/audit-ai-service` | The untouched AI-DLC scaffolds, as generated. |
 
----
+## Framework family
 
-## Getting Started
-
-```bash
-# Build
-mvn clean package
-
-# Run
-mvn spring-boot:run
-
-# Test
-mvn test
-```
-
-## Project Structure
-
-```
-settlement-service/
-├── src/main/java/com/subhamviky/settlement/
-│   ├── config/      # Spring configuration
-│   ├── domain/      # Domain entities (E2A: CDS View Entity / JPA @Entity)
-│   ├── service/     # Business logic  (E2A: BIMP / @Service)
-│   ├── controller/  # REST controllers (E2A: OData Binding / @RestController)
-│   └── repository/  # Data access
-├── src/main/resources/
-│   └── application.yml
-├── pom.xml
-└── Dockerfile
-```
-
-## License
-
-Apache License 2.0 — see [LICENSE](LICENSE)
+[E2A](https://github.com/subhamviky/e2a-framework) ·
+[A2C · G2C · P0](https://github.com/subhamviky/a2c-framework) ·
+[Capability-Oriented DSA](https://github.com/subhamviky/capability-oriented-dsa)
