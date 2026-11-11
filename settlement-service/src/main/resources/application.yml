@@ -1,6 +1,17 @@
 spring:
   application:
     name: settlement-service
+  datasource:
+    # Local and test database: in-memory H2 in PostgreSQL mode. Production uses
+    # application-prod.yml (Azure Database for PostgreSQL).
+    url: jdbc:h2:mem:settlement;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    username: sa
+  jpa:
+    hibernate:
+      ddl-auto: none          # Flyway owns the schema
+    open-in-view: false
+  flyway:
+    enabled: true
 
 server:
   port: 8080
@@ -13,6 +24,15 @@ management:
   endpoint:
     health:
       show-details: always
+
+settlement:
+  policy:
+    max-amount: 1000000.00
+    blocked-accounts: ACC-BLOCKED
+  clearing:
+    max-amount: 250000.00
+  outbox:
+    relay-interval-ms: 2000
 
 logging:
   pattern:
