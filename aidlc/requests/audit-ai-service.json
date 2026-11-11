@@ -1,0 +1,36 @@
+{
+  "tenant_id": "settlement",
+  "context": {
+    "source": "inline",
+    "project_name": "audit-ai-service",
+    "package_name": "audit_ai_service",
+    "runtime": "python",
+    "runtime_version": "3.12",
+    "build_tool": "poetry",
+    "platform": "azure",
+    "project_type": "fastapi_microservice",
+    "license": "Apache-2.0",
+    "dependencies": [
+      "e2a-framework @ git+https://github.com/subhamviky/e2a-framework.git@v1.1.0",
+      "capability-oriented-dsa @ git+https://github.com/subhamviky/capability-oriented-dsa.git@v0.2.0",
+      "httpx>=0.27"
+    ],
+    "dev_dependencies": ["jsonschema>=4.22"]
+  },
+  "harness": {
+    "generator_type": "e2a_inherited",
+    "agent_name": "SettlementAuditAgent",
+    "abstract_class_source": "package",
+    "package_name": "e2a_base",
+    "domain": "financial-settlement"
+  },
+  "prompt": {
+    "user_prompt": "Audit AI for settlements: consumes settlement events, applies deterministic risk rules, retrieves the relevant policy clauses, and explains findings with an E2A agent; a finding is recorded only after the settlement is confirmed against the system of record."
+  },
+  "a2c_sdlc": {
+    "enabled": true,
+    "project_type": "FastAPI Microservice",
+    "target_cloud": "azure",
+    "mandatory_nfrs": ["Audit"]
+  }
+}

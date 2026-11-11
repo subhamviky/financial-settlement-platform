@@ -1,0 +1,17 @@
+{
+  "event_id": "6f1c1d2e-8a4b-4c4e-9b8a-1f2e3d4c5b6a",
+  "event_type": "settlement.completed",
+  "schema_version": "1",
+  "occurred_at": "2026-11-10T09:15:00.123Z",
+  "tenant_id": "acme",
+  "correlation_id": "c0ffee00-0000-4000-8000-000000000001",
+  "settlement": {
+    "settlement_id": "0b6d7d6a-5d0c-4f7e-9a3e-2c1b0a9f8e7d",
+    "payer_account": "ACC-1000",
+    "payee_account": "ACC-2000",
+    "amount": "1250.00",
+    "currency": "EUR",
+    "status": "COMPLETED",
+    "reason": null
+  }
+}

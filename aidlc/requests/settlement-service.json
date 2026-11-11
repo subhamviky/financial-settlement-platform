@@ -1,0 +1,34 @@
+{
+  "tenant_id": "settlement",
+  "context": {
+    "source": "inline",
+    "project_name": "settlement-service",
+    "runtime": "java",
+    "runtime_version": "21",
+    "build_tool": "maven",
+    "platform": "azure",
+    "project_type": "spring_boot",
+    "group_id": "com.subhamviky.settlement",
+    "artifact_id": "settlement-service",
+    "spring_boot_version": "3.5.7",
+    "java_source_version": "21",
+    "packaging": "jar",
+    "license": "Apache-2.0",
+    "dependencies": ["web", "actuator", "data-jpa", "validation"]
+  },
+  "harness": {
+    "generator_type": "e2a_inherited",
+    "agent_name": "SettlementPolicyAgent",
+    "abstract_class_source": "generate",
+    "domain": "financial-settlement"
+  },
+  "prompt": {
+    "user_prompt": "Deterministic settlement system of record: CQRS command and query paths, an orchestrated saga with compensation, a double-entry ledger and a transactional outbox. SettlementPolicyAgent is a deterministic policy gate that fails closed before any money moves."
+  },
+  "a2c_sdlc": {
+    "enabled": true,
+    "project_type": "Spring Boot",
+    "target_cloud": "azure",
+    "mandatory_nfrs": ["Audit", "TransactionalOutbox", "SagaCompensation"]
+  }
+}
