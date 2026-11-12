@@ -2,7 +2,7 @@
 name = "audit-ai-service"
 version = "0.1.0"
 description = ""
-authors = ["Subham Gupta <subhamviky@gmail.com>"]
+authors = []
 readme = "README.md"
 packages = [{include = "audit_ai_service", from = "src"}]
 

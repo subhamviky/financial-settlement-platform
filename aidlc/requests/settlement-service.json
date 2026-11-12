@@ -14,7 +14,16 @@
     "java_source_version": "21",
     "packaging": "jar",
     "license": "Apache-2.0",
-    "dependencies": ["web", "actuator", "data-jpa", "validation"]
+    "dependencies": [
+      "web",
+      "actuator",
+      "data-jpa",
+      "validation",
+      "org.flywaydb:flyway-core",
+      "org.flywaydb:flyway-database-postgresql",
+      "com.h2database:h2@runtime",
+      "org.postgresql:postgresql@runtime"
+    ]
   },
   "harness": {
     "generator_type": "e2a_inherited",
@@ -29,6 +38,10 @@
     "enabled": true,
     "project_type": "Spring Boot",
     "target_cloud": "azure",
-    "mandatory_nfrs": ["Audit", "TransactionalOutbox", "SagaCompensation"]
+    "mandatory_nfrs": [
+      "Audit",
+      "TransactionalOutbox",
+      "SagaCompensation"
+    ]
   }
 }

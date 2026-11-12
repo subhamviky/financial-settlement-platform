@@ -9,6 +9,7 @@ FROM eclipse-temurin:21-jre-alpine AS runtime
 WORKDIR /app
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup -u 1001
 COPY --from=builder /build/target/*.jar app.jar
+ENV SERVER_PORT=8080
 USER appuser
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \

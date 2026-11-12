@@ -49,7 +49,9 @@ def test_only_settlement_outcomes_are_audited_and_the_position_advances(service,
 
 def test_new_and_unknown_event_types_never_stop_the_feed(service, source):
     adjusted = make_event("ledger.adjusted")
-    adjusted["adjustment"] = {"adjustment_id": "a1", "type": "WRITE_OFF", "amount": "2.50"}
+    adjusted["adjustment"] = {"adjustment_id": "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e60", "type": "WRITE_OFF",
+                              "amount": "2.50", "debit_account": "ACC-WRITEOFF", "credit_account": "ACC-2000",
+                              "reason": "short payment", "reference": "BANK-002"}     # valid under the contract
     source.publish(adjusted)
     future = make_event()
     future["event_type"] = "settlement.disputed"          # a type a later contract version might add

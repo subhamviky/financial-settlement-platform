@@ -1,0 +1,80 @@
+{
+  "files": {
+    "audit-ai-service/.devcontainer/devcontainer.json": "403bb0dbadbfb10de7af10020bf542cb04aa697d6bb76bc3b6bb75058ec80aa3",
+    "audit-ai-service/.dockerignore": "68037e5d506c8e78f3e283483bf9f8129ad72e8a6b791fa6b43a5062941fa7e0",
+    "audit-ai-service/.env.example": "9a06b9e4185a4215e328604d4b684618f08183402b1500611a73fe4684cdc6e1",
+    "audit-ai-service/.gitattributes": "05ef65504fbba693a90ab3798e7a6ac91fbde811ef18d6bba09ee62db7d60c59",
+    "audit-ai-service/.github/workflows/a2c-ci.yml": "31486449eb7071e8c01050d0632ee0e2ade83f18cebdc856c5d428996363a131",
+    "audit-ai-service/.github/workflows/ci.yml": "d2b370974be6257e6ef134076ff01f75c3a460d5485cab2f3b510411875f461c",
+    "audit-ai-service/.gitignore": "f0800dcf1de617ff2881419f8f054dc42ab49d3ab038f67f645d99baf642b018",
+    "audit-ai-service/Dockerfile": "4f346c2c178849b3f88120194afb75301ff39555bb1e0e25ca75e66b01f31993",
+    "audit-ai-service/LICENSE": "33a4a5fe48853935a5da29241cf6224c8a08f2d3fd83dc835cb9b951a46f76a8",
+    "audit-ai-service/Makefile": "60b66136de5112b165bd86e9d7ded1a71a0a035291e177e1041041c99feca538",
+    "audit-ai-service/README.md": "ecbb0c3045328bd418aeb0ed5b9f8118325b73efe61eb53b280662122345567e",
+    "audit-ai-service/docker-compose.yml": "142ed7979a839cab1f64f060904932fb3e92f2916a0c0fd8ab1e6d4e4922529c",
+    "audit-ai-service/docs/a2c/spec.md": "c9f5641671171e9f2b2f2f3af846e8afba171eb407d1384b677882e382c78c09",
+    "audit-ai-service/infra/main.tf": "8b4ca2af09e46ce9875c486980af95ddf840daeb95430d20054c0c857668c076",
+    "audit-ai-service/infra/tests/azure.tftest.hcl": "49cbd951eef04528ee28b2922771e49881f4555aacda8131127aca67f405eb06",
+    "audit-ai-service/pyproject.toml": "cf04d1525be398231628f656d7276e156fdbf2c19b070e60061943beb9c83024",
+    "audit-ai-service/src/audit_ai_service/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "audit-ai-service/src/audit_ai_service/agents/settlement_audit_agent.py": "e6242f4a7c5baeeaba1e795d81411c8700fae5a853f8410b8c25c47987d2c9a7",
+    "audit-ai-service/src/audit_ai_service/config/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "audit-ai-service/src/audit_ai_service/contracts/__init__.py": "3055b81c76a99d49bcdab6bdab080938fc04c6226e6e96ad570f9ebf69655d62",
+    "audit-ai-service/src/audit_ai_service/contracts/settlement_event.py": "cbec6ccba6e102e659486a42d0db2844ee41deed4e345ab15006484a793490fe",
+    "audit-ai-service/src/audit_ai_service/generated/nfr.py": "a2f68e586608cba3bc5df3b6db8b33572203b59f8f4f7a9412cea0a98c3e50b5",
+    "audit-ai-service/src/audit_ai_service/generated/observability.py": "604ae787302fae5b911f72f1649e85527f7f7102b836f8345f192f6cb934d9aa",
+    "audit-ai-service/src/audit_ai_service/generated/service.py": "b5f00af194d6d9da87b714da71c86e0d4f48445d8b612738c40d71a4e28d6a84",
+    "audit-ai-service/src/audit_ai_service/main.py": "d88d828795ebe55b6c9916058937a062c5aee9d8cb75d8fa1e6daba530a81b14",
+    "audit-ai-service/src/audit_ai_service/models/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "audit-ai-service/src/audit_ai_service/routers/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "audit-ai-service/src/audit_ai_service/services/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "audit-ai-service/src/audit_ai_service/tools/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "audit-ai-service/tests/test_contracts.py": "744b6917e3609c0581714ac0bacb3b0a18733b6bab88e667f9da65c9d868715f",
+    "audit-ai-service/tests/test_health.py": "03d068b432d078b9ec56d5f95d605e53da0324f068042969aff75d4fa7c0985f"
+  },
+  "generator": "a2c-framework",
+  "request": {
+    "a2c_sdlc": {
+      "contracts": [
+        "contracts/events/settlement-event.v1.schema.json"
+      ],
+      "enabled": true,
+      "mandatory_nfrs": [
+        "Audit"
+      ],
+      "project_type": "FastAPI Microservice",
+      "target_cloud": "azure"
+    },
+    "context": {
+      "build_tool": "poetry",
+      "dependencies": [
+        "e2a-framework @ git+https://github.com/subhamviky/e2a-framework.git@v1.1.0",
+        "capability-oriented-dsa @ git+https://github.com/subhamviky/capability-oriented-dsa.git@v0.2.0",
+        "httpx>=0.27"
+      ],
+      "dev_dependencies": [
+        "jsonschema>=4.22"
+      ],
+      "license": "Apache-2.0",
+      "package_name": "audit_ai_service",
+      "platform": "azure",
+      "project_name": "audit-ai-service",
+      "project_type": "fastapi_microservice",
+      "runtime": "python",
+      "runtime_version": "3.12",
+      "source": "inline"
+    },
+    "harness": {
+      "abstract_class_source": "package",
+      "agent_name": "SettlementAuditAgent",
+      "domain": "financial-settlement",
+      "generator_type": "e2a_inherited",
+      "package_name": "e2a_base"
+    },
+    "prompt": {
+      "user_prompt": "Audit AI for settlements: consumes settlement events, applies deterministic risk rules, retrieves the relevant policy clauses, and explains findings with an E2A agent; a finding is recorded only after the settlement is confirmed against the system of record."
+    },
+    "tenant_id": "settlement"
+  },
+  "version": "1.2.0"
+}

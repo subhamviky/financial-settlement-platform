@@ -1,33 +1,16 @@
-"""Pydantic models for the settlement event contract (contracts/events/settlement-event.v1.schema.json)."""
+"""Models of the audit service: the settlement event (generated from the contract) and the findings."""
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
+# The event contract (contracts/events/settlement-event.v1.schema.json) is generated into
+# models by A2C (a2c_sdlc.contracts); the hand-typed copies are gone.
+from ..contracts.settlement_event import Adjustment, Settlement as SettlementInfo, SettlementEvent  # noqa: E402,F401
+
 EventType = Literal["ledger.posted", "settlement.completed", "settlement.compensated", "settlement.rejected",
                     "ledger.adjusted"]
-
-
-class SettlementInfo(BaseModel):
-    settlement_id: str
-    payer_account: str
-    payee_account: str
-    amount: Decimal
-    currency: str
-    status: str
-    reason: Optional[str] = None
-
-
-class SettlementEvent(BaseModel):
-    event_id: str
-    event_type: EventType
-    schema_version: Literal["1"]
-    occurred_at: datetime
-    tenant_id: str
-    correlation_id: str
-    settlement: SettlementInfo
-    adjustment: Optional[dict] = None          # only on ledger.adjusted (contract v1, additive)
 
 
 class RuleHit(BaseModel):

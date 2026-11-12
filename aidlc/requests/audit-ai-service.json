@@ -15,7 +15,9 @@
       "capability-oriented-dsa @ git+https://github.com/subhamviky/capability-oriented-dsa.git@v0.2.0",
       "httpx>=0.27"
     ],
-    "dev_dependencies": ["jsonschema>=4.22"]
+    "dev_dependencies": [
+      "jsonschema>=4.22"
+    ]
   },
   "harness": {
     "generator_type": "e2a_inherited",
@@ -31,6 +33,11 @@
     "enabled": true,
     "project_type": "FastAPI Microservice",
     "target_cloud": "azure",
-    "mandatory_nfrs": ["Audit"]
+    "mandatory_nfrs": [
+      "Audit"
+    ],
+    "contracts": [
+      "contracts/events/settlement-event.v1.schema.json"
+    ]
   }
 }

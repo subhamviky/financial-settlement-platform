@@ -44,7 +44,7 @@ variable "image" {
 
 variable "container_port" {
   type        = number
-  description = "Port the container listens on."
+  description = "Port the container listens on (the P0 Dockerfile's port)."
   default     = 8080
 }
 

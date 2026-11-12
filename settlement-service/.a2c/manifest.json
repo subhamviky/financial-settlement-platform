@@ -1,0 +1,78 @@
+{
+  "files": {
+    "settlement-service/.devcontainer/devcontainer.json": "63117d70471c94813dddc94364bdc6b6f37e08b5bb4c304f26676a51c3bab5af",
+    "settlement-service/.dockerignore": "099faa94082a424674a59380a24abd232c077140635067039b9b9cce1005527c",
+    "settlement-service/.github/workflows/a2c-ci.yml": "c9bcc904495163d809dd61530c141943070aa2f9097f3ba75de94727cc6b80c8",
+    "settlement-service/.github/workflows/ci.yml": "96b2d64d8fb179419f1fc83f8a105b1371a97e1fe63ea72895cc3dc8e4de3b6d",
+    "settlement-service/.gitignore": "5a0ba92dab5622641189e15c3d607219c9cebe7fceddbe43d267210a9accea14",
+    "settlement-service/Dockerfile": "744df5a5b56b68328986c37d05d599bb55ffc7ea9a2fb1f72b984d42b2b0890e",
+    "settlement-service/LICENSE": "234f81f1f4c311e423d6ffa91116df4a20e29883e0bb3068298c1c0efe0ad0af",
+    "settlement-service/Makefile": "7a0d0da0a2f6d41b72db2ce8234441f9eccfbceda949b087ef33eee144477f5f",
+    "settlement-service/README.md": "7288d2b71c5f46aa4d0b81c7c6017bb635eb4c1eb16dfc8484237a72a837d584",
+    "settlement-service/docker-compose.yml": "5ebb91f55ebbf71189d23d44c49b2ccfbc32d8adb06dda66e62b6e2946cb04c6",
+    "settlement-service/docs/a2c/spec.md": "c7bdf7f41e3e382444fa776df04ef5b85d2bf5b37f5ab6deecb234a0da8683fc",
+    "settlement-service/infra/main.tf": "830ead92f2f9d7c5d4703303bb198b788b2190ca4bcd8e327b52038321da18f7",
+    "settlement-service/infra/tests/azure.tftest.hcl": "49cbd951eef04528ee28b2922771e49881f4555aacda8131127aca67f405eb06",
+    "settlement-service/pom.xml": "30feb802eec3a463e2e5b6635077ea57da2d7fc4b297394b122a8850f4763ae3",
+    "settlement-service/src/main/java/com/subhamviky/settlement/Application.java": "4358477561ac447daf67759d874ea92be8e3fe675ec95c9d7d736b28dbe408e4",
+    "settlement-service/src/main/java/com/subhamviky/settlement/common/E2ABase.java": "05cd38e3c4ed9c1c01e2ffa664c4c87dea3740f64c18364032c47332e19194b8",
+    "settlement-service/src/main/java/com/subhamviky/settlement/generated/NfrSupport.java": "4853d4601735282c1e855f47d3a43234af20a3503ad2bebae2a2ef225c1c5c5b",
+    "settlement-service/src/main/java/com/subhamviky/settlement/generated/Observability.java": "3f5cfd47220671485d7c237852bd2eed7bd5dd7326ada50e07b43f4c2f5da73b",
+    "settlement-service/src/main/java/com/subhamviky/settlement/generated/SettlementServiceService.java": "26f73242d2743bf2ca5a6840b0b390d73355cd69e4c1a68ef8d22101a42597f5",
+    "settlement-service/src/main/java/com/subhamviky/settlement/service/SettlementPolicyAgent.java": "376e3368619746d3d7ddf578aa001a714a0efc56bf0d2b665aa1f356bbb259e9",
+    "settlement-service/src/main/resources/application-dev.yml": "17aced484c0ff4385574f85acdb242c7854301fd3616c721e3a6cc552d4f674e",
+    "settlement-service/src/main/resources/application-prod.yml": "0cc8005fbe642475ef8806ae478e3dd1484be10725aa8fb39a45a914f0dd4546",
+    "settlement-service/src/main/resources/application.yml": "61826f7b0b97afaf4adee3af6f8c3a52cd7b4b3bead00b565b4152e55b25730a",
+    "settlement-service/src/test/java/com/subhamviky/settlement/ApplicationTests.java": "426223f13f06b36ecf06fa90d6e8fdee905285593a4cf09aa516fae5ddb24102",
+    "settlement-service/src/test/java/com/subhamviky/settlement/HealthEndpointTests.java": "759c017db602bf5a780a7a9c226eaef14965048279c427129680052e34b9dda7"
+  },
+  "generator": "a2c-framework",
+  "request": {
+    "a2c_sdlc": {
+      "enabled": true,
+      "mandatory_nfrs": [
+        "Audit",
+        "TransactionalOutbox",
+        "SagaCompensation"
+      ],
+      "project_type": "Spring Boot",
+      "target_cloud": "azure"
+    },
+    "context": {
+      "artifact_id": "settlement-service",
+      "build_tool": "maven",
+      "dependencies": [
+        "web",
+        "actuator",
+        "data-jpa",
+        "validation",
+        "org.flywaydb:flyway-core",
+        "org.flywaydb:flyway-database-postgresql",
+        "com.h2database:h2@runtime",
+        "org.postgresql:postgresql@runtime"
+      ],
+      "group_id": "com.subhamviky.settlement",
+      "java_source_version": "21",
+      "license": "Apache-2.0",
+      "packaging": "jar",
+      "platform": "azure",
+      "project_name": "settlement-service",
+      "project_type": "spring_boot",
+      "runtime": "java",
+      "runtime_version": "21",
+      "source": "inline",
+      "spring_boot_version": "3.5.7"
+    },
+    "harness": {
+      "abstract_class_source": "generate",
+      "agent_name": "SettlementPolicyAgent",
+      "domain": "financial-settlement",
+      "generator_type": "e2a_inherited"
+    },
+    "prompt": {
+      "user_prompt": "Deterministic settlement system of record: CQRS command and query paths, an orchestrated saga with compensation, a double-entry ledger and a transactional outbox. SettlementPolicyAgent is a deterministic policy gate that fails closed before any money moves."
+    },
+    "tenant_id": "settlement"
+  },
+  "version": "1.2.0"
+}
