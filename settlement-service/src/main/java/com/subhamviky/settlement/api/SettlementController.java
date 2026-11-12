@@ -1,5 +1,6 @@
 package com.subhamviky.settlement.api;
 
+import com.subhamviky.settlement.adjustment.PostAdjustmentCommand;
 import com.subhamviky.settlement.cqrs.CommandContext;
 import com.subhamviky.settlement.cqrs.CqrsRequest;
 import com.subhamviky.settlement.cqrs.CqrsResult;
@@ -46,6 +47,24 @@ public class SettlementController {
     @GetMapping("/accounts/{id}/balance")
     public ResponseEntity<Object> balance(@RequestHeader("X-Tenant-Id") String tenantId, @PathVariable String id) {
         return respond(orchestrator.execute(CqrsRequest.query(SettlementOrchestrator.GET_BALANCE,
+                new CommandContext(tenantId, null, UUID.randomUUID().toString()), Map.of("id", id))));
+    }
+
+    /** Write-off or refund of a completed settlement (used by the reconciliation engine). */
+    @PostMapping("/settlements/{id}/adjustments")
+    public ResponseEntity<Object> adjust(@RequestHeader("X-Tenant-Id") String tenantId,
+                                         @RequestHeader("Idempotency-Key") String idempotencyKey,
+                                         @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+                                         @PathVariable UUID id, @RequestBody PostAdjustmentCommand command) {
+        CommandContext ctx = new CommandContext(tenantId, idempotencyKey,
+                correlationId != null ? correlationId : UUID.randomUUID().toString());
+        return respond(orchestrator.execute(CqrsRequest.command(SettlementOrchestrator.ADJUST, ctx,
+                command.withSettlementId(id))));
+    }
+
+    @GetMapping("/settlements/{id}/adjustments")
+    public ResponseEntity<Object> adjustments(@RequestHeader("X-Tenant-Id") String tenantId, @PathVariable String id) {
+        return respond(orchestrator.execute(CqrsRequest.query(SettlementOrchestrator.GET_ADJUSTMENTS,
                 new CommandContext(tenantId, null, UUID.randomUUID().toString()), Map.of("id", id))));
     }
 

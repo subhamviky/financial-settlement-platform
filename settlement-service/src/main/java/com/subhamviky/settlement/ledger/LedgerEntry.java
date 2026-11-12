@@ -19,7 +19,7 @@ public class LedgerEntry {
 
     public enum Direction { DEBIT, CREDIT }
 
-    public enum PostingType { POSTING, REVERSAL }
+    public enum PostingType { POSTING, REVERSAL, WRITE_OFF, REFUND }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

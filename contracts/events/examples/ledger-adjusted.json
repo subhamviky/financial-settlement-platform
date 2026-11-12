@@ -1,0 +1,26 @@
+{
+  "event_id": "7d0c2f5e-3b8a-4e61-9a7d-4c1f0b2e9a11",
+  "event_type": "ledger.adjusted",
+  "schema_version": "1",
+  "occurred_at": "2026-11-03T10:15:00Z",
+  "tenant_id": "acme",
+  "correlation_id": "recon-acme-BANK-002",
+  "settlement": {
+    "settlement_id": "3fe945b7-9091-4885-8920-3426a984a5c9",
+    "payer_account": "ACC-2000",
+    "payee_account": "ACC-3000",
+    "amount": "171.00",
+    "currency": "EUR",
+    "status": "COMPLETED",
+    "reason": null
+  },
+  "adjustment": {
+    "adjustment_id": "1b9e8c44-6f0a-4d2b-8e57-2a6c0d9f3e70",
+    "type": "WRITE_OFF",
+    "amount": "2.50",
+    "debit_account": "ACC-3000",
+    "credit_account": "ACC-WRITEOFF",
+    "reason": "short payment within the write-off limit",
+    "reference": "BANK-002"
+  }
+}

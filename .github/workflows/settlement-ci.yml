@@ -57,7 +57,7 @@ jobs:
           name: contract-samples
           path: samples
       - name: Real events from settlement-service satisfy the contract
-        run: python contracts/tools/validate_samples.py samples/settlement-events.json contracts/events/examples/*.json
+        run: python contracts/tools/validate_samples.py samples/*.json contracts/events/examples/*.json
 
   terraform:
     runs-on: ubuntu-latest

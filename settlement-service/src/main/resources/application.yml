@@ -31,6 +31,9 @@ settlement:
     blocked-accounts: ACC-BLOCKED
   clearing:
     max-amount: 250000.00
+  adjustments:
+    write-off-limit: 5.00             # per settlement, all write-offs together
+    write-off-account: ACC-WRITEOFF
   outbox:
     relay-interval-ms: 2000
 

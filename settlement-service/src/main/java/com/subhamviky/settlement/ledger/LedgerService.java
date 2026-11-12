@@ -41,6 +41,22 @@ public class LedgerService {
         entries.save(new LedgerEntry(settlementId, payerId, LedgerEntry.Direction.CREDIT, amount, LedgerEntry.PostingType.REVERSAL));
     }
 
+    /**
+     * Adjustment of a completed settlement (write-off or refund): debit one account, credit
+     * another, same amount, booked against the settlement so its ledger stays balanced.
+     * The debit is funds-checked like any posting.
+     */
+    public void adjust(UUID settlementId, String tenantId, String debitId, String creditId, BigDecimal amount,
+                       String currency, String postingType) {
+        Account debit = account(debitId, tenantId, currency, "debit");
+        Account credit = account(creditId, tenantId, currency, "credit");
+        LedgerEntry.PostingType type = LedgerEntry.PostingType.valueOf(postingType);
+        debit.debit(amount);
+        credit.credit(amount);
+        entries.save(new LedgerEntry(settlementId, debitId, LedgerEntry.Direction.DEBIT, amount, type));
+        entries.save(new LedgerEntry(settlementId, creditId, LedgerEntry.Direction.CREDIT, amount, type));
+    }
+
     /** Ledger invariant: total debits equal total credits for the settlement. */
     public boolean isBalanced(UUID settlementId) {
         List<LedgerEntry> list = entries.findBySettlementIdOrderByIdAsc(settlementId);

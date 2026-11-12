@@ -5,7 +5,8 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-EventType = Literal["ledger.posted", "settlement.completed", "settlement.compensated", "settlement.rejected"]
+EventType = Literal["ledger.posted", "settlement.completed", "settlement.compensated", "settlement.rejected",
+                    "ledger.adjusted"]
 
 
 class SettlementInfo(BaseModel):
@@ -26,6 +27,7 @@ class SettlementEvent(BaseModel):
     tenant_id: str
     correlation_id: str
     settlement: SettlementInfo
+    adjustment: Optional[dict] = None          # only on ledger.adjusted (contract v1, additive)
 
 
 class RuleHit(BaseModel):

@@ -36,6 +36,10 @@ class AuditService:
         feed = self.source.events_after(self.tenant_id, self.position)
         processed = 0
         for raw in events_from(feed):
+            # Tolerant reader: an event type this service does not audit is skipped before it is
+            # parsed, so a type added to the contract later never stops the feed.
+            if raw.get("event_type") not in AUDITED_TYPES:
+                continue
             if self.process(SettlementEvent.model_validate(raw)) is not None:
                 processed += 1
         self.position = max(self.position, int(feed.get("next_after_sequence", self.position)))

@@ -47,6 +47,17 @@ def test_only_settlement_outcomes_are_audited_and_the_position_advances(service,
     assert service.poll_once() == 0
 
 
+def test_new_and_unknown_event_types_never_stop_the_feed(service, source):
+    adjusted = make_event("ledger.adjusted")
+    adjusted["adjustment"] = {"adjustment_id": "a1", "type": "WRITE_OFF", "amount": "2.50"}
+    source.publish(adjusted)
+    future = make_event()
+    future["event_type"] = "settlement.disputed"          # a type a later contract version might add
+    source.publish(future)
+    source.publish(make_event())
+    assert service.poll_once() == 1 and service.position == 3
+
+
 def test_without_a_usable_answer_the_agent_falls_back_to_the_rules(service, source):
     service.llm._rules.clear()                    # the model answers nothing useful
     source.publish(make_event(amount="240000.00"))
