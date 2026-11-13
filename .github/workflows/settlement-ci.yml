@@ -47,6 +47,8 @@ jobs:
       - run: pipx install "poetry>=2.0,<3"
       - run: poetry install --no-interaction
       - run: poetry run pytest -q
+      - name: E2A conformance, strict (v1.3 makes R2 an error; design note V13-01)
+        run: poetry run python -m e2a.conformance --strict src
       - name: Release gate (E2A ProjectReleaseGate; evals/golden.json, every case right; pytest ran above)
         run: poetry run python -m audit_ai_service.release.gate --skip-tests --report release-gate-report.json
       - name: Keep the gate report
