@@ -42,6 +42,14 @@ jobs:
       - run: pipx install "poetry>=2.0,<3"
       - run: poetry install --no-interaction
       - run: poetry run pytest -q
+      - name: Release gate (E2A ProjectReleaseGate; evals/golden.json, every case right; pytest ran above)
+        run: poetry run python -m audit_ai_service.release.gate --skip-tests --report release-gate-report.json
+      - name: Keep the gate report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: audit-release-gate-report
+          path: audit-ai-service/release-gate-report.json
 
   contracts:
     runs-on: ubuntu-latest

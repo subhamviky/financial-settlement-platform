@@ -1,0 +1,17 @@
+[
+  {"name": "small settlement", "event": {"amount": "99.00"},
+   "expected": {"verdict": "CLEARED", "risk_band": "LOW"}},
+  {"name": "medium settlement", "event": {"amount": "50000.00"},
+   "expected": {"verdict": "CLEARED", "risk_band": "MEDIUM"}},
+  {"name": "large settlement", "event": {"amount": "240000.00"},
+   "expected": {"verdict": "FLAGGED", "risk_band": "HIGH", "policies": ["POL-AML-01"]}},
+  {"name": "above every band", "event": {"amount": "300000.00"},
+   "expected": {"verdict": "FLAGGED", "risk_band": "CRITICAL", "policies": ["POL-AML-01"]}},
+  {"name": "clearing decline", "event": {"amount": "1250.00", "event_type": "settlement.compensated",
+                                          "status": "COMPENSATED", "reason": "clearing declined"},
+   "expected": {"verdict": "FLAGGED", "risk_band": "LOW", "policies": ["POL-OPS-03"]}},
+  {"name": "six settlements in an hour", "event": {"amount": "1250.00", "payer": "ACC-1001"}, "repeat": 6,
+   "expected": {"verdict": "FLAGGED", "risk_band": "LOW", "policies": ["POL-AML-02"]}},
+  {"name": "not in the system of record", "event": {"amount": "240000.00"}, "in_system_of_record": false,
+   "expected": {"verdict": "UNCONFIRMED", "risk_band": "HIGH"}}
+]
