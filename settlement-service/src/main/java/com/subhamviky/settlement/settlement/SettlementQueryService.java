@@ -1,6 +1,6 @@
 package com.subhamviky.settlement.settlement;
 
-import com.subhamviky.settlement.cqrs.BaseQueryService;
+import com.subhamviky.e2a.cqrs.BaseQueryService;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;

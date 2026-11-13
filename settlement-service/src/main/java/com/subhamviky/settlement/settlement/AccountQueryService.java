@@ -1,6 +1,6 @@
 package com.subhamviky.settlement.settlement;
 
-import com.subhamviky.settlement.cqrs.BaseQueryService;
+import com.subhamviky.e2a.cqrs.BaseQueryService;
 import com.subhamviky.settlement.ledger.AccountRepository;
 import java.math.BigDecimal;
 import java.util.Optional;

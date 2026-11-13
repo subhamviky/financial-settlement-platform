@@ -1,6 +1,6 @@
 package com.subhamviky.settlement.adjustment;
 
-import com.subhamviky.settlement.cqrs.BaseQueryService;
+import com.subhamviky.e2a.cqrs.BaseQueryService;
 import com.subhamviky.settlement.settlement.SettlementRepository;
 import java.util.List;
 import java.util.Optional;

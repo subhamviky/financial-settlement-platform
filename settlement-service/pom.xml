@@ -20,6 +20,7 @@
 
     <properties>
         <java.version>21</java.version>
+        <e2a.version>1.2.2</e2a.version>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
     </properties>
@@ -28,6 +29,23 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!-- e2a-java (E2A v1.2.2): the CQRS profile, the JPA idempotency store and the agent lifecycle -->
+        <dependency>
+            <groupId>com.subhamviky.e2a</groupId>
+            <artifactId>e2a-cqrs</artifactId>
+            <version>${e2a.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.subhamviky.e2a</groupId>
+            <artifactId>e2a-spring-jpa</artifactId>
+            <version>${e2a.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.subhamviky.e2a</groupId>
+            <artifactId>e2a-test</artifactId>
+            <version>${e2a.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

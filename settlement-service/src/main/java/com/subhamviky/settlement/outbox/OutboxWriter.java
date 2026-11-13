@@ -3,7 +3,7 @@ package com.subhamviky.settlement.outbox;
 import com.subhamviky.settlement.adjustment.LedgerAdjustment;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.subhamviky.settlement.cqrs.CommandContext;
+import com.subhamviky.e2a.cqrs.CommandContext;
 import com.subhamviky.settlement.settlement.Settlement;
 import java.time.Instant;
 import java.util.LinkedHashMap;

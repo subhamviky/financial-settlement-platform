@@ -21,6 +21,11 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
+      - name: Install e2a-java at the version the pom pins (no package registry; built from E2A's tag)
+        run: |
+          E2A="v$(sed -n 's:.*<e2a.version>\(.*\)</e2a.version>.*:\1:p' pom.xml)"
+          git clone -q --depth 1 --branch "$E2A" https://github.com/subhamviky/e2a-framework.git "$RUNNER_TEMP/e2a"
+          mvn -B -q -f "$RUNNER_TEMP/e2a/java/pom.xml" install -DskipTests
       - name: Build and test (Java 21, H2 in PostgreSQL mode)
         run: mvn -B verify
       - name: Keep the events the tests produced, for the contract check

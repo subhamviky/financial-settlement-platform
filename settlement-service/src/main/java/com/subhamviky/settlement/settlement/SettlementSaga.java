@@ -1,6 +1,6 @@
 package com.subhamviky.settlement.settlement;
 
-import com.subhamviky.settlement.cqrs.CommandContext;
+import com.subhamviky.e2a.cqrs.CommandContext;
 import com.subhamviky.settlement.generated.NfrSupport;
 import com.subhamviky.settlement.ledger.LedgerRejection;
 import com.subhamviky.settlement.ledger.LedgerService;

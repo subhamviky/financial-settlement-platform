@@ -1,9 +1,14 @@
 # Multi-stage Java build — non-root runtime image
 FROM eclipse-temurin:21-jdk-alpine AS builder
 WORKDIR /build
+RUN apk add --no-cache maven git
 COPY pom.xml .
+# e2a-java at the version the pom pins (no package registry: built from E2A's tag)
+RUN E2A="v$(sed -n 's:.*<e2a.version>\(.*\)</e2a.version>.*:\1:p' pom.xml)" \
+ && git clone -q --depth 1 --branch "$E2A" https://github.com/subhamviky/e2a-framework.git /e2a \
+ && mvn -B -q -f /e2a/java/pom.xml install -DskipTests
 COPY src ./src
-RUN apk add --no-cache maven && mvn clean package -DskipTests
+RUN mvn -B clean package -DskipTests
 
 FROM eclipse-temurin:21-jre-alpine AS runtime
 WORKDIR /app

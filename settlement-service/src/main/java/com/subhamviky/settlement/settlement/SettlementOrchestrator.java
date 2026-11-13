@@ -3,11 +3,11 @@ package com.subhamviky.settlement.settlement;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.subhamviky.settlement.adjustment.AdjustmentQueryService;
 import com.subhamviky.settlement.adjustment.PostAdjustmentCommandService;
-import com.subhamviky.settlement.cqrs.BaseCommandService;
-import com.subhamviky.settlement.cqrs.BaseOrchestrator;
-import com.subhamviky.settlement.cqrs.BaseQueryService;
-import com.subhamviky.settlement.cqrs.CqrsRequest;
-import com.subhamviky.settlement.cqrs.JpaIdempotencyStore;
+import com.subhamviky.e2a.cqrs.BaseCommandService;
+import com.subhamviky.e2a.cqrs.BaseOrchestrator;
+import com.subhamviky.e2a.cqrs.BaseQueryService;
+import com.subhamviky.e2a.cqrs.CqrsRequest;
+import com.subhamviky.e2a.core.IdempotencyStore;
 import com.subhamviky.settlement.generated.Observability;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +31,7 @@ public class SettlementOrchestrator extends BaseOrchestrator {
     private final PostAdjustmentCommandService adjust;
     private final AdjustmentQueryService adjustmentQuery;
 
-    public SettlementOrchestrator(JpaIdempotencyStore store, ObjectMapper json, SubmitSettlementCommandService submit,
+    public SettlementOrchestrator(IdempotencyStore store, ObjectMapper json, SubmitSettlementCommandService submit,
                                   SettlementQueryService settlementQuery, AccountQueryService accountQuery,
                                   PostAdjustmentCommandService adjust, AdjustmentQueryService adjustmentQuery) {
         super(store, json);

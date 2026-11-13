@@ -1,9 +1,9 @@
 package com.subhamviky.settlement.api;
 
 import com.subhamviky.settlement.adjustment.PostAdjustmentCommand;
-import com.subhamviky.settlement.cqrs.CommandContext;
-import com.subhamviky.settlement.cqrs.CqrsRequest;
-import com.subhamviky.settlement.cqrs.CqrsResult;
+import com.subhamviky.e2a.cqrs.CommandContext;
+import com.subhamviky.e2a.cqrs.CqrsRequest;
+import com.subhamviky.e2a.cqrs.CqrsResult;
 import com.subhamviky.settlement.settlement.SettlementOrchestrator;
 import com.subhamviky.settlement.settlement.SubmitSettlementCommand;
 import java.util.Map;

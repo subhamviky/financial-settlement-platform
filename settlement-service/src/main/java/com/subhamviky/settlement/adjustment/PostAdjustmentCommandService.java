@@ -1,8 +1,8 @@
 package com.subhamviky.settlement.adjustment;
 
-import com.subhamviky.settlement.cqrs.BaseCommandService;
-import com.subhamviky.settlement.cqrs.CommandContext;
-import com.subhamviky.settlement.cqrs.CqrsResult;
+import com.subhamviky.e2a.cqrs.BaseCommandService;
+import com.subhamviky.e2a.cqrs.CommandContext;
+import com.subhamviky.e2a.cqrs.CqrsResult;
 import com.subhamviky.settlement.ledger.LedgerRejection;
 import com.subhamviky.settlement.ledger.LedgerService;
 import com.subhamviky.settlement.outbox.OutboxWriter;
