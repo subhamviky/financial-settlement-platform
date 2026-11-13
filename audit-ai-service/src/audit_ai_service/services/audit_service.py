@@ -4,12 +4,15 @@ system of record -> retrieve policies -> agent explanation -> record.
 A finding is FLAGGED only after the settlement is confirmed in settlement-service
 (same status and amount): the agent may explain, but deterministic controls
 decide and confirm (E2A).
+
+The claims, the findings and the feed position live in E2A's ports (services/state.py): in
+memory by default, or in Cosmos DB (e2a-adapters, design note D-03), shared by every Container
+App replica, so an event is audited once and every replica lists the same findings.
 """
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import List, Optional
 
-from e2a_base import BaseIdempotencyStore, ClaimStatus
-from e2a_inmemory_adapters import InMemoryIdempotencyStore
+from e2a import BaseIdempotencyStore, BaseTransactionalStore, ClaimStatus
 from e2a_simulated_llm import SimulatedLLMService
 
 from ..agents.settlement_audit_agent import SettlementAuditAgent
@@ -17,23 +20,54 @@ from ..models.events import AuditFinding, SettlementEvent
 from .policy_rag import PolicyRAGPipeline
 from .risk_rules import RiskRules
 from .settlement_client import SettlementSource, events_from
+from .state import state_ports
 
 AUDITED_TYPES = ("settlement.completed", "settlement.compensated")
 
 
 class AuditService:
     def __init__(self, source: SettlementSource, rag: PolicyRAGPipeline, llm: SimulatedLLMService,
-                 tenant_id: str, rules: RiskRules = None, store: BaseIdempotencyStore = None) -> None:
+                 tenant_id: str, rules: RiskRules = None, store: BaseIdempotencyStore = None,
+                 rows: BaseTransactionalStore = None) -> None:
         self.source, self.rag, self.llm, self.tenant_id = source, rag, llm, tenant_id
         self.rules = rules or RiskRules()
-        self.store = store or InMemoryIdempotencyStore()
+        if store is None or rows is None:
+            default_rows, default_store = state_ports()
+            store, rows = store or default_store, rows or default_rows
+        self.store, self.rows = store, rows
         self.agent = SettlementAuditAgent(rag)
-        self.position = 0
-        self.findings: Dict[str, AuditFinding] = {}
+
+    # ----------------------------------------------------------------- state
+    @property
+    def position(self) -> int:
+        """The feed position, shared by every replica."""
+        return int((self.rows.get(f"cursor:{self.tenant_id}") or {"position": 0})["position"])
+
+    def _advance(self, new_position: int) -> None:
+        """Move the cursor forward only (compare-and-set): a slower replica never moves it back."""
+        key = f"cursor:{self.tenant_id}"
+        while True:
+            value, version = self.rows.get_versioned(key) or ({"position": 0}, None)
+            if new_position <= value["position"]:
+                return
+            if self.rows.put_if_version(key, {"position": new_position}, version).committed:
+                return
+
+    def _record(self, finding: AuditFinding, tenant_id: str) -> None:
+        """Store the finding once and list it in the tenant's index (compare-and-set)."""
+        self.rows.put_if_version(f"finding:{finding.event_id}", finding.model_dump(mode="json"), None)
+        key = f"finding-index:{tenant_id}"
+        while True:
+            value, version = self.rows.get_versioned(key) or ({"ids": []}, None)
+            if finding.event_id in value["ids"]:
+                return
+            if self.rows.put_if_version(key, {"ids": value["ids"] + [finding.event_id]}, version).committed:
+                return
 
     # ------------------------------------------------------------------ feed
     def poll_once(self) -> int:
-        feed = self.source.events_after(self.tenant_id, self.position)
+        start = self.position
+        feed = self.source.events_after(self.tenant_id, start)
         processed = 0
         for raw in events_from(feed):
             # Tolerant reader: an event type this service does not audit is skipped before it is
@@ -42,7 +76,7 @@ class AuditService:
                 continue
             if self.process(SettlementEvent.model_validate(raw)) is not None:
                 processed += 1
-        self.position = max(self.position, int(feed.get("next_after_sequence", self.position)))
+        self._advance(int(feed.get("next_after_sequence", start)))
         return processed
 
     # --------------------------------------------------------------- one event
@@ -57,7 +91,7 @@ class AuditService:
         except Exception:
             self.store.fail(event.event_id, retryable=True, tenant_id=event.tenant_id, owner=claim.owner)
             raise
-        self.findings[event.event_id] = finding
+        self._record(finding, event.tenant_id)
         self.store.complete(event.event_id, finding.model_dump(mode="json"), tenant_id=event.tenant_id,
                             owner=claim.owner)
         return finding
@@ -96,7 +130,8 @@ class AuditService:
 
     # ---------------------------------------------------------------- queries
     def list_findings(self, anomaly: Optional[bool] = None) -> List[AuditFinding]:
-        items = list(self.findings.values())
+        ids = (self.rows.get(f"finding-index:{self.tenant_id}") or {"ids": []})["ids"]
+        items = [AuditFinding.model_validate(self.rows.get(f"finding:{i}")) for i in ids]
         if anomaly is None:
             return items
         return [f for f in items if (f.verdict == "FLAGGED") == anomaly]

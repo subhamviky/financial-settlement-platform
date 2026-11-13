@@ -173,6 +173,27 @@ resource "azurerm_container_app" "app" {
         name  = "KEY_VAULT_URI"
         value = azurerm_key_vault.app.vault_uri
       }
+      env {
+        name  = "AUDIT_STATE_BACKEND"
+        value = "cosmos"
+      }
+      env {
+        name  = "COSMOS_ENDPOINT"
+        value = azurerm_cosmosdb_account.state.endpoint
+      }
+      env {
+        name  = "COSMOS_DATABASE"
+        value = azurerm_cosmosdb_sql_database.audit.name
+      }
+      env {
+        name  = "COSMOS_CONTAINER"
+        value = azurerm_cosmosdb_sql_container.state.name
+      }
+      env {
+        # DefaultAzureCredential picks the user-assigned identity by its client id
+        name  = "AZURE_CLIENT_ID"
+        value = azurerm_user_assigned_identity.app.client_id
+      }
       liveness_probe {
         transport = "HTTP"
         port      = var.container_port

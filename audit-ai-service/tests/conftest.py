@@ -75,3 +75,26 @@ def no_e2a_v11_adapters():
         yield
     legacy = [str(w.message) for w in seen if "removed in v1.3" in str(w.message)]
     assert not legacy, legacy
+
+
+# The Cosmos DB emulator's published, well-known key (not a secret).
+COSMOS_EMULATOR_KEY = "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
+
+
+@pytest.fixture(autouse=True)
+def isolated_cosmos_container(monkeypatch):
+    """With AUDIT_STATE_BACKEND=cosmos (CI runs the whole suite a second time on the Cosmos DB
+    emulator), each test gets its own container: state is durable, so tests must not share it."""
+    import os
+    if os.getenv("AUDIT_STATE_BACKEND") != "cosmos":
+        yield
+        return
+    from azure.cosmos import CosmosClient, PartitionKey
+    database = CosmosClient(os.environ["COSMOS_ENDPOINT"], os.environ.get("COSMOS_KEY", COSMOS_EMULATOR_KEY)) \
+        .create_database_if_not_exists("audit-test")
+    container = database.create_container(f"state-{uuid.uuid4().hex[:10]}", PartitionKey("/pk"), default_ttl=-1)
+    monkeypatch.setenv("COSMOS_KEY", os.environ.get("COSMOS_KEY", COSMOS_EMULATOR_KEY))
+    monkeypatch.setenv("COSMOS_DATABASE", "audit-test")
+    monkeypatch.setenv("COSMOS_CONTAINER", container.id)
+    yield
+    database.delete_container(container.id)

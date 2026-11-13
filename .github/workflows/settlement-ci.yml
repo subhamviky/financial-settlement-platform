@@ -47,6 +47,17 @@ jobs:
       - run: pipx install "poetry>=2.0,<3"
       - run: poetry install --no-interaction
       - run: poetry run pytest -q
+      - name: Start the Cosmos DB emulator
+        run: |
+          docker run -d --name cosmos -p 8081:8081 mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview
+          for _ in $(seq 90); do docker logs cosmos 2>&1 | grep -q "Gateway=OK" && break; sleep 2; done
+      - name: Tests again with the state in Cosmos DB (e2a-adapters), including several replicas on one container
+        env:
+          AUDIT_STATE_BACKEND: cosmos
+          COSMOS_ENDPOINT: http://127.0.0.1:8081
+          # the emulator's published, well-known key (not a secret)
+          COSMOS_KEY: C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==
+        run: poetry run pytest -q -rs
       - name: E2A conformance, strict (v1.3 makes R2 an error; design note V13-01)
         run: poetry run python -m e2a.conformance --strict src
       - name: Release gate (E2A ProjectReleaseGate; evals/golden.json, every case right; pytest ran above)

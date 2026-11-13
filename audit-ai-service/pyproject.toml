@@ -8,7 +8,10 @@ packages = [{include = "audit_ai_service", from = "src"}]
 
 [tool.poetry.dependencies]
 python = ">=3.12"
-"e2a-framework" = { git = "https://github.com/subhamviky/e2a-framework.git", tag = "v1.3.0" }
+"e2a-framework" = { git = "https://github.com/subhamviky/e2a-framework.git", tag = "v1.5.0" }
+# Cosmos DB for claims, findings and the feed position when AUDIT_STATE_BACKEND=cosmos (design note D-03)
+"e2a-adapters" = { git = "https://github.com/subhamviky/e2a-framework.git", tag = "v1.5.0", subdirectory = "adapters", extras = ["azure"] }
+"azure-identity" = ">=1.17"
 "capability-oriented-dsa" = { git = "https://github.com/subhamviky/capability-oriented-dsa.git", tag = "v0.2.0" }
 "httpx" = ">=0.27"
 "fastapi" = ">=0.111"
