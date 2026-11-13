@@ -19,6 +19,7 @@ from ..agents.settlement_audit_agent import SettlementAuditAgent
 from ..models.events import AuditFinding, SettlementEvent
 from .policy_rag import PolicyRAGPipeline
 from .risk_rules import RiskRules
+from .paged_index import PagedIndex
 from .settlement_client import SettlementSource, events_from
 from .state import state_ports
 
@@ -54,15 +55,9 @@ class AuditService:
                 return
 
     def _record(self, finding: AuditFinding, tenant_id: str) -> None:
-        """Store the finding once and list it in the tenant's index (compare-and-set)."""
+        """Store the finding once and list it in the tenant's paged index (compare-and-set)."""
         self.rows.put_if_version(f"finding:{finding.event_id}", finding.model_dump(mode="json"), None)
-        key = f"finding-index:{tenant_id}"
-        while True:
-            value, version = self.rows.get_versioned(key) or ({"ids": []}, None)
-            if finding.event_id in value["ids"]:
-                return
-            if self.rows.put_if_version(key, {"ids": value["ids"] + [finding.event_id]}, version).committed:
-                return
+        PagedIndex(self.rows, f"findings:{tenant_id}").append(finding.event_id)
 
     # ------------------------------------------------------------------ feed
     def poll_once(self) -> int:
@@ -130,7 +125,7 @@ class AuditService:
 
     # ---------------------------------------------------------------- queries
     def list_findings(self, anomaly: Optional[bool] = None) -> List[AuditFinding]:
-        ids = (self.rows.get(f"finding-index:{self.tenant_id}") or {"ids": []})["ids"]
+        ids = PagedIndex(self.rows, f"findings:{self.tenant_id}").ids()
         items = [AuditFinding.model_validate(self.rows.get(f"finding:{i}")) for i in ids]
         if anomaly is None:
             return items
