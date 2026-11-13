@@ -18,7 +18,7 @@ This repository went through three stages. Each one is kept, so the path can be 
 
 | In the spike | In `main` | Framework that made the difference |
 |---|---|---|
-| Three Java services (orchestrator, ledger, audit) | One Java service with explicit command, query and saga paths, plus a Python audit service | E2A Deterministic CQRS profile (`BaseOrchestrator`, `BaseCommandService`, `BaseQueryService`) |
+| Three Java services (orchestrator, ledger, audit) | One Java service with explicit command, query and saga paths, plus a Python audit service | E2A Deterministic CQRS profile (`BaseOrchestrator`, `BaseCommandService`, `BaseQueryService`), from e2a-java (E2A `v1.2.2`) |
 | Kafka for events | Transactional outbox and a pull feed with a versioned JSON-Schema contract, checked in CI against the events the tests really produce | E2A event path; contract-first |
 | Idempotency built per service | Atomic claim per (tenant, key); a replay returns the stored result, a reused key with other content is `409` | E2A claim states |
 | AI audit with Spring AI inside the Java code | Python E2A agent with policy retrieval; the rules decide, the agent explains, the system of record confirms | E2A `BaseAgent`, `BaseRAGPipeline`; DSA `LOWER_BOUND` for risk bands |
