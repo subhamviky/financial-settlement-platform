@@ -43,3 +43,14 @@ settlement-service's outbox relay sends every event to this service's `settlemen
 - With neither the namespace nor the connection string set, the service uses the event feed only, as before.
 
 **Terraform:** `infra/events.tf` grants settlement-service's identity *Data Sender* on this one queue. One replica always runs, to consume.
+
+## Who may call the API: identity at ingress (E2A v1.7.4)
+
+In Azure, Container Apps authentication with Entra ID verifies every caller and injects the verified claims, in `X-MS-CLIENT-PRINCIPAL`; external requests cannot set that header. The service takes the caller from those claims only (`E2A_IDENTITY_SOURCE=azure_container_apps`). e2a-adapters reads the header, and E2A's `ClaimMapIdentityResolver` resolves it with the Entra ID preset; `E2A_IDENTITY_TENANT_MAP` maps the caller's directory to this deployment's tenant.
+
+| Case | Response |
+|---|---|
+| No verified claims | 401 |
+| Another directory, or a missing `AUDIT_REQUIRED_ROLE` | 403 |
+
+`/health` stays open. Identity is on by default in Terraform (`infra/identity.tf`). Container Apps authentication itself is configured once with `az containerapp auth` (the commands are in that file), because azurerm has no resource for it. Locally and in tests (no source set), the API is open, as before.

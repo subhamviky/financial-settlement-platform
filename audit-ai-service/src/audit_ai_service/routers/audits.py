@@ -1,4 +1,5 @@
-"""HTTP exposure for audit findings."""
+"""HTTP exposure for audit findings. Every route requires the identity Container Apps
+authentication verified when identity at ingress is on (routers/identity.py)."""
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -6,7 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from ..models.events import AuditFinding
 from ..services.audit_service import AuditService
 
-router = APIRouter(prefix="/audits", tags=["audits"])
+from .identity import require_identity
+
+router = APIRouter(prefix="/audits", tags=["audits"], dependencies=[Depends(require_identity)])
 
 
 def get_service(request: Request) -> AuditService:

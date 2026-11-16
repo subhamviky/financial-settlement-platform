@@ -175,6 +175,14 @@ resource "azurerm_container_app" "app" {
         name  = "SERVICEBUS_QUEUE"
         value = azurerm_servicebus_queue.events.name
       }
+      # identity.tf: the caller comes from the claims Container Apps authentication verified
+      dynamic "env" {
+        for_each = local.identity_env
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
       env {
         name  = "KEY_VAULT_URI"
         value = azurerm_key_vault.app.vault_uri
