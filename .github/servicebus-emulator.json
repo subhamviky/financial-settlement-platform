@@ -1,0 +1,57 @@
+{
+ "UserConfig": {
+  "Namespaces": [
+   {
+    "Name": "sbemulatorns",
+    "Queues": [
+     {
+      "Name": "settlement-events",
+      "Properties": {
+       "DeadLetteringOnMessageExpiration": true,
+       "DefaultMessageTimeToLive": "PT1H",
+       "DuplicateDetectionHistoryTimeWindow": "PT20S",
+       "ForwardDeadLetteredMessagesTo": "",
+       "ForwardTo": "",
+       "LockDuration": "PT1M",
+       "MaxDeliveryCount": 5,
+       "RequiresDuplicateDetection": false,
+       "RequiresSession": false
+      }
+     },
+     {
+      "Name": "audit-test-events",
+      "Properties": {
+       "DeadLetteringOnMessageExpiration": true,
+       "DefaultMessageTimeToLive": "PT1H",
+       "DuplicateDetectionHistoryTimeWindow": "PT20S",
+       "ForwardDeadLetteredMessagesTo": "",
+       "ForwardTo": "",
+       "LockDuration": "PT1M",
+       "MaxDeliveryCount": 5,
+       "RequiresDuplicateDetection": false,
+       "RequiresSession": false
+      }
+     },
+     {
+      "Name": "settlement-test-events",
+      "Properties": {
+       "DeadLetteringOnMessageExpiration": true,
+       "DefaultMessageTimeToLive": "PT1H",
+       "DuplicateDetectionHistoryTimeWindow": "PT20S",
+       "ForwardDeadLetteredMessagesTo": "",
+       "ForwardTo": "",
+       "LockDuration": "PT1M",
+       "MaxDeliveryCount": 5,
+       "RequiresDuplicateDetection": false,
+       "RequiresSession": false
+      }
+     }
+    ],
+    "Topics": []
+   }
+  ],
+  "Logging": {
+   "Type": "File"
+  }
+ }
+}

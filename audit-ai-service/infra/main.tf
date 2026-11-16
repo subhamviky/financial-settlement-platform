@@ -104,8 +104,9 @@ resource "azurerm_servicebus_namespace" "app" {
   tags                = local.tags
 }
 
+# settlement-service's events arrive here (its outbox relay sends them; events.tf grants it Sender)
 resource "azurerm_servicebus_queue" "events" {
-  name                                 = "events"
+  name                                 = "settlement-events"
   namespace_id                         = azurerm_servicebus_namespace.app.id
   max_delivery_count                   = var.max_delivery_count
   dead_lettering_on_message_expiration = true
@@ -158,7 +159,7 @@ resource "azurerm_container_app" "app" {
   }
 
   template {
-    min_replicas = 0
+    min_replicas = 1 # a replica always receives from the settlement-events queue
     max_replicas = 3
     container {
       name   = "app"
@@ -166,8 +167,13 @@ resource "azurerm_container_app" "app" {
       cpu    = 0.5
       memory = "1Gi"
       env {
+        # the fully qualified namespace: the consumer authenticates with the managed identity
         name  = "SERVICEBUS_NAMESPACE"
-        value = azurerm_servicebus_namespace.app.name
+        value = "${azurerm_servicebus_namespace.app.name}.servicebus.windows.net"
+      }
+      env {
+        name  = "SERVICEBUS_QUEUE"
+        value = azurerm_servicebus_queue.events.name
       }
       env {
         name  = "KEY_VAULT_URI"

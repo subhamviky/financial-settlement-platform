@@ -29,3 +29,18 @@ def audits_for(settlement_id: str, service: AuditService = Depends(get_service))
 @router.post("/poll")
 def poll(service: AuditService = Depends(get_service)) -> dict:
     return {"processed": service.poll_once(), "position": service.position}
+
+
+@router.post("/consume")
+def consume(service: AuditService = Depends(get_service)) -> dict:
+    """Settle one batch from the Service Bus queue (the background worker does this continuously)."""
+    report = service.consume()
+    return {k: v for k, v in report.items() if k != "messages"} | {
+        "decisions": [m["decision"] for m in report.get("messages", [])]}
+
+
+@router.post("/reconcile")
+def reconcile(service: AuditService = Depends(get_service)) -> dict:
+    """Settle the queue's dead letters: confirmed ones removed, never-applied ones replayed."""
+    report = service.reconcile_dead_letters()
+    return {k: v for k, v in report.items() if isinstance(v, (str, int, float, list, dict, type(None)))}

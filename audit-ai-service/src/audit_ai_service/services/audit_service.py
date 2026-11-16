@@ -10,9 +10,9 @@ memory by default, or in Cosmos DB (e2a-adapters, design note D-03), shared by e
 App replica, so an event is audited once and every replica lists the same findings.
 """
 from decimal import Decimal
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from e2a import BaseIdempotencyStore, BaseTransactionalStore, ClaimStatus
+from e2a import BaseDistributedLock, BaseIdempotencyStore, BaseMessageBroker, BaseTransactionalStore, InMemoryBroker
 from e2a_simulated_llm import SimulatedLLMService
 
 from ..agents.settlement_audit_agent import SettlementAuditAgent
@@ -21,15 +21,15 @@ from .policy_rag import PolicyRAGPipeline
 from .risk_rules import RiskRules
 from .paged_index import PagedIndex
 from .settlement_client import SettlementSource, events_from
+from .consumer import AUDITED_TYPES, CONSUMER_CONFIG, SettlementEventConsumer
 from .state import state_ports
-
-AUDITED_TYPES = ("settlement.completed", "settlement.compensated")
 
 
 class AuditService:
     def __init__(self, source: SettlementSource, rag: PolicyRAGPipeline, llm: SimulatedLLMService,
                  tenant_id: str, rules: RiskRules = None, store: BaseIdempotencyStore = None,
-                 rows: BaseTransactionalStore = None) -> None:
+                 rows: BaseTransactionalStore = None, broker: BaseMessageBroker = None,
+                 queue: str = None, lease: BaseDistributedLock = None) -> None:
         self.source, self.rag, self.llm, self.tenant_id = source, rag, llm, tenant_id
         self.rules = rules or RiskRules()
         if store is None or rows is None:
@@ -37,6 +37,8 @@ class AuditService:
             store, rows = store or default_store, rows or default_rows
         self.store, self.rows = store, rows
         self.agent = SettlementAuditAgent(rag)
+        # Service Bus (services/state.py): settlement-service's events arrive on this queue
+        self.broker, self.queue, self.lease = broker, queue, lease
 
     # ----------------------------------------------------------------- state
     @property
@@ -69,27 +71,62 @@ class AuditService:
             # parsed, so a type added to the contract later never stops the feed.
             if raw.get("event_type") not in AUDITED_TYPES:
                 continue
-            if self.process(SettlementEvent.model_validate(raw)) is not None:
+            if self.process_raw(raw) is not None:
                 processed += 1
         self._advance(int(feed.get("next_after_sequence", start)))
         return processed
 
+    # ------------------------------------------------------------- the queue
+    def consume(self, wait_seconds: float = 0.0) -> Dict:
+        """Receive one batch from the Service Bus queue and settle every message (E2A consumer)."""
+        if self.broker is None:
+            return {"status": "DISABLED", "messages": []}
+        config = {**CONSUMER_CONFIG, "consumer_wait_seconds": wait_seconds}
+        return SettlementEventConsumer(self, self.broker, self.queue).consume(self.queue, config)
+
+    def reconcile_dead_letters(self) -> Dict:
+        """Settle the queue's dead letters under the lease: confirmed ones are removed, never-applied
+        ones replayed, poison ones left for a person (E2A BaseReconciliationService)."""
+        if self.broker is None:
+            return {"status": "DISABLED"}
+        return SettlementEventConsumer(self, self.broker, self.queue, self.lease).reconcile(
+            CONSUMER_CONFIG, dlq_source=self.queue)
+
     # --------------------------------------------------------------- one event
     def process(self, event: SettlementEvent) -> Optional[AuditFinding]:
-        if event.event_type not in AUDITED_TYPES:
+        return self.process_raw(event.model_dump(mode="json"))
+
+    def process_raw(self, raw: Dict) -> Optional[AuditFinding]:
+        """Audit one event once (the feed path). It is settled by the same consumer as a queue
+        delivery, under the same claim, through an in-process broker. The body is the event's JSON
+        as settlement-service published it, so the claim's fingerprint matches the queue's copy.
+        Returns the new finding, or None when the event was already handled or is not audited."""
+        if raw.get("event_type") not in AUDITED_TYPES:
             return None
-        claim = self.store.claim(event.event_id, tenant_id=event.tenant_id)
-        if claim.status != ClaimStatus.CLAIMED:          # REPLAY / IN_PROGRESS: already handled
-            return None
-        try:
-            finding = self._audit(event)
-        except Exception:
-            self.store.fail(event.event_id, retryable=True, tenant_id=event.tenant_id, owner=claim.owner)
-            raise
+        broker = InMemoryBroker()
+        broker.publish("feed", raw, {"tenant_id": str(raw.get("tenant_id"))})
+        settled = SettlementEventConsumer(self, broker, "feed").settle(broker.receive("feed")[0], "feed",
+                                                                      CONSUMER_CONFIG)
+        if settled["decision"] == "processed":
+            return AuditFinding.model_validate(dict(settled["result"]["finding"]))
+        if settled["error"] is not None:
+            raise settled["error"]
+        return None                                       # duplicate or in progress elsewhere
+
+    def audit_and_record(self, event: SettlementEvent) -> AuditFinding:
+        """The effect of one event, without the claim (the consumer holds it). Resumable: a finding
+        an earlier delivery recorded is returned, never audited twice."""
+        recorded = self.finding(event.event_id)
+        if recorded is not None:
+            PagedIndex(self.rows, f"findings:{event.tenant_id}").append(event.event_id)
+            return recorded
+        finding = self._audit(event)
         self._record(finding, event.tenant_id)
-        self.store.complete(event.event_id, finding.model_dump(mode="json"), tenant_id=event.tenant_id,
-                            owner=claim.owner)
         return finding
+
+    def finding(self, event_id: str) -> Optional[AuditFinding]:
+        raw = self.rows.get(f"finding:{event_id}")
+        return AuditFinding.model_validate(raw) if raw else None
 
     def _audit(self, event: SettlementEvent) -> AuditFinding:
         s = event.settlement
