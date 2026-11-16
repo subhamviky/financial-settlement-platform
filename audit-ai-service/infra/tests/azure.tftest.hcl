@@ -63,3 +63,17 @@ run "settlement_events_queue" {
     error_message = "A replica always consumes from the queue."
   }
 }
+
+run "identity_at_ingress" {
+  command = plan
+
+  assert {
+    condition     = contains([for e in azurerm_container_app.app.template[0].container[0].env : "${e.name}=${e.value}"], "E2A_IDENTITY_SOURCE=azure_container_apps")
+    error_message = "In Azure the caller comes from the claims Container Apps authentication verified."
+  }
+
+  assert {
+    condition     = contains([for e in azurerm_container_app.app.template[0].container[0].env : "${e.name}=${e.value}"], "E2A_IDENTITY_TENANT_MAP={\"00000000-0000-0000-0000-000000000000\":\"acme\"}")
+    error_message = "The deploying directory's users belong to this deployment's tenant."
+  }
+}
