@@ -35,6 +35,10 @@ Infrastructure: Azure, as Terraform only (Container Apps, Service Bus, Key Vault
 
 **Its place in the landscape:** [order-to-cash-agentic-ai](https://github.com/subhamviky/order-to-cash-agentic-ai) submits settlements here; [aws-reconciliation-engine](https://github.com/subhamviky/aws-reconciliation-engine) reads the event feed, matches the bank statement against it, and posts accepted write-offs and refunds back to the ledger.
 
+## Design
+
+The full HLD and LLD of both services, with diagrams and a Word copy, is in [`docs/design/`](docs/design/SETTLEMENT_PLATFORM_DESIGN.md).
+
 ## Evidence
 
 Verified in CI (`settlement-ci`) on every push: the Java and Python test suites, the event contract against real events, and Terraform `fmt`/`validate`/`test`. The three projects also run together in the `landscape-demo` workflow of order-to-cash-agentic-ai. This is an architecture reference implementation: it has not been deployed or load-tested, and it makes no production claims.

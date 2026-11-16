@@ -1,0 +1,14 @@
+digraph G {
+  graph [rankdir=LR, compound=true, fontname="DejaVu Sans", fontsize=13, labelloc=t, label=<<b>Data: PostgreSQL (settlement-service) and Cosmos DB (audit-ai-service)</b>>, fontcolor="#1F3864", nodesep=0.35, ranksep=0.6, pad=0.25];
+  node [shape=record, style="filled", fillcolor="#F4F8FC", color="#1F3864", fontname="DejaVu Sans", fontsize=10, fontcolor="#1F3864"];
+  edge [color="#2E4A6B", fontname="DejaVu Sans", fontsize=9];
+  acc [label="{account|id PK, tenant_id\lcurrency, balance numeric(19,2)\lversion (optimistic lock)\l}"];
+  set [label="{settlement|id uuid PK, tenant_id\lpayer_account, payee_account\lamount, currency, status, failure_reason\lversion, created_at, updated_at\l}"];
+  le [label="{ledger_entry (append-only)|id PK, settlement_id, account_id\ldirection DEBIT/CREDIT, amount\lposting_type POSTING/REVERSAL/WRITE_OFF/REFUND\l}"];
+  adj [label="{ledger_adjustment|id uuid PK, tenant_id, settlement_id\ladjustment_type, amount\ldebit_account, credit_account, reason, reference\l}"];
+  out [label="{outbox_event|id PK (feed sequence), event_id unique\ltenant_id, aggregate_id, event_type\lpayload varchar(4000), published_at\l}"];
+  idem [label="{idempotency_record|PK (tenant_id, idempotency_key)\lfingerprint, status, http_status, response_body\l}"];
+  cos [label="{Cosmos DB audit/state (pk per item)|claim: E2A claim per event_id\lfinding:\<event_id\>\lfindings:\<tenant\>:head / :page:n (PagedIndex)\lcursor:\<tenant\> (feed position)\llease (dead-letter reconciliation)\l}", fillcolor="#E6F4F5"];
+  le -> set; le -> acc; adj -> set; out -> set [xlabel="aggregate_id"];
+  out -> cos [style=dashed, xlabel="events → findings"];
+}

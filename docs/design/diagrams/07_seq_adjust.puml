@@ -1,0 +1,29 @@
+@startuml
+!include ../common/style.puml
+title A ledger adjustment (write-off or refund) from the reconciliation engine
+autonumber "<b>0."
+participant "reconciliation-service" as R
+participant "SettlementController" as C
+participant "SettlementOrchestrator" as O
+participant "PostAdjustmentCommandService" as A
+database "PostgreSQL" as D
+R -> C : POST /api/v1/settlements/{id}/adjustments\nIdempotency-Key recon-<tenant>-<line>
+C -> O : execute(ADJUST)
+O -> D : idempotency claim (tenant, key)
+alt replay
+  O --> R : the first result (201 or 422)
+else new
+  O -> A : mutate
+  A -> D : BEGIN; SELECT settlement FOR UPDATE\n(forced version increment)
+  alt not found
+    A --> O : 404
+  else not COMPLETED, or limit exceeded
+    A --> O : 422 (rolled back)
+  else allowed
+    A -> D : ledger_adjustment + 2 ledger entries + outbox ledger.adjusted; COMMIT
+    A --> O : 201 adjustment
+  end
+end
+O --> R : response
+note over R : 201 POSTED · 4xx REFUSED · 5xx / 409 in progress: PENDING (retried, same key)
+@enduml

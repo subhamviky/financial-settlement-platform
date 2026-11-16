@@ -1,0 +1,41 @@
+@startuml
+!include ../common/style.puml
+title An event, from the outbox to an audit finding
+autonumber "<b>0."
+participant "OutboxRelay\n(settlement-service)" as X
+participant "Service Bus queue\nsettlement-events" as Q
+participant "Worker / POST /audits/consume\n(SettlementEventConsumer)" as C
+database "Cosmos DB" as D
+participant "AuditService" as S
+participant "RiskRules (DSA)" as R
+participant "settlement-service\nGET /settlements/{id}" as SS
+participant "PolicyRAGPipeline" as P
+participant "SettlementAuditAgent" as A
+X -> Q : send (message id = event_id,\ntenant_id, idempotency_key, event_type)
+Q -> C : receive batch
+C -> D : claim(event_id)
+alt duplicate (also seen on the feed)
+  C -> Q : complete (no effect)
+else new
+  C -> S : audit_and_record(event)
+  S -> D : finding:<event_id> exists? (resume)
+  S -> R : evaluate: band, rule hits
+  alt no hit
+    S --> C : CLEARED
+  else hit
+    S -> SS : confirm status and amount
+    alt not confirmed
+      S --> C : UNCONFIRMED
+    else confirmed
+      S -> P : retrieve(policies for the hits)
+      S -> A : run: explain, cite only retrieved policies
+      A -> P : groundedness(answer) < 0.5 ? fallback (degraded)
+      S --> C : FLAGGED + explanation, cited policies, groundedness
+    end
+  end
+  S -> D : put finding (create-if-absent) + PagedIndex append
+  C -> D : complete(claim)
+  C -> Q : complete
+end
+note over C, Q : poison message: dead-lettered with the reason;\nPOST /audits/reconcile confirms or replays dead letters under the lease
+@enduml

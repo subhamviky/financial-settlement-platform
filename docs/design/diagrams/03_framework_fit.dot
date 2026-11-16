@@ -1,0 +1,21 @@
+digraph G {
+  graph [rankdir=LR, compound=true, fontname="DejaVu Sans", fontsize=13, labelloc=t, label=<<b>How the framework family is used</b>>, fontcolor="#1F3864", nodesep=0.35, ranksep=0.6, pad=0.25];
+  node [shape=box, style="rounded,filled", fillcolor="#F4F8FC", color="#1F3864", fontname="DejaVu Sans", fontsize=10, fontcolor="#1F3864", margin="0.12,0.05"];
+  edge [color="#2E4A6B", fontname="DejaVu Sans", fontsize=9];
+  subgraph cluster_ss { label=<<b>settlement-service (Java 21, Spring Boot 3.5)</b>>; style="rounded,filled"; fillcolor="#EAF2FA"; color="#2E75B6";
+    j1 [label="SettlementOrchestrator · Submit/PostAdjustment CommandService\nSettlement/Account/Adjustment QueryService (hand-written)"];
+    j2 [label="SettlementPolicyAgent (G2C skeleton, deterministic)"];
+    j3 [label="generated/: NfrSupport, Observability (A2C); infra/*.tf"];
+  }
+  subgraph cluster_ai { label=<<b>audit-ai-service (Python 3.12, FastAPI)</b>>; style="rounded,filled"; fillcolor="#EAF2FA"; color="#2E75B6";
+    p1 [label="AuditService · RiskRules · PagedIndex"];
+    p2 [label="SettlementAuditAgent (G2C skeleton)\nPolicyRAGPipeline"];
+    p3 [label="SettlementEventConsumer\nAuditReleaseGate"];
+  }
+  ej [label="e2a-java 1.3.0\ne2a-cqrs: BaseOrchestrator, BaseCommandService, BaseQueryService\ne2a-spring-jpa: JPA idempotency store · e2a-core: BaseAgent", fillcolor="#E6F4F5", color="#0F7C8C", fontcolor="#0F5C66"];
+  ep [label="E2A v1.7.5 (Python)\nBaseAgent · BaseRAGPipeline · IdempotentConsumer\nProjectReleaseGate · identity at ingress", fillcolor="#E6F4F5", color="#0F7C8C", fontcolor="#0F5C66"];
+  ad [label="e2a-adapters 1.7.5 [azure]\nCosmos stores and lease · ServiceBusBroker", fillcolor="#E6F4F5", color="#0F7C8C", fontcolor="#0F5C66"];
+  mp [label="e2a-managed-providers (optional)\nllm_service by profile (openai_azure, ...)", fillcolor="#F2F2F2", color="#7F7F7F"];
+  dsa [label="capability-oriented-dsa\nLOWER_BOUND (risk bands)", fillcolor="#F2F2F2", color="#7F7F7F"];
+  j1 -> ej; j2 -> ej; p2 -> ep; p3 -> ep; p1 -> ad; p3 -> ad; p1 -> dsa; p2 -> mp [style=dashed];
+}

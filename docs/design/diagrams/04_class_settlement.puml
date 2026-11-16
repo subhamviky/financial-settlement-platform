@@ -1,0 +1,69 @@
+@startuml
+!include ../common/style.puml
+title settlement-service: class model (CQRS on e2a-java)
+package "e2a-java (installed)" #F7F7F7 {
+  abstract class BaseOrchestrator <<e2a-cqrs>> {
+    +execute(CqrsRequest): CqrsResult
+  }
+  abstract class "BaseCommandService<C>" as BCS <<e2a-cqrs>> {
+    +mutate(...)
+    #executeBusinessLogic(C, ctx)
+  }
+  abstract class "BaseQueryService<Q,R>" as BQS <<e2a-cqrs>>
+  abstract class BaseAgent <<e2a-core>> {
+    +run(state, ctx, config)
+  }
+  interface IdempotencyStore <<e2a-core>>
+}
+class SettlementController
+class EventFeedController
+class SettlementOrchestrator
+class SubmitSettlementCommandService
+class PostAdjustmentCommandService
+class "SettlementQueryService\nAccountQueryService\nAdjustmentQueryService" as Queries
+class SettlementPolicyAgent {
+  #applyPolicy(state, ctx)
+  #handleError(...)
+}
+class SettlementSaga {
+  +reject(command, ctx, reason)
+  +run(command, ctx): Settlement
+}
+class LedgerService {
+  +post / reverse / adjust
+  +isBalanced(id): boolean
+}
+class OutboxWriter
+class OutboxRelay {
+  +relay(): int  @Scheduled 2 s
+}
+interface EventPublisher
+class ServiceBusEventPublisher
+class LoggingEventPublisher
+interface ClearingGateway
+class SimulatedClearingGateway
+class Settlement <<aggregate>>
+BaseOrchestrator <|-- SettlementOrchestrator
+BCS <|-- SubmitSettlementCommandService
+BCS <|-- PostAdjustmentCommandService
+BQS <|-- Queries
+BaseAgent <|-- SettlementPolicyAgent
+SettlementController --> SettlementOrchestrator
+SettlementOrchestrator --> IdempotencyStore : claim per (tenant, key)
+SettlementOrchestrator --> SubmitSettlementCommandService
+SettlementOrchestrator --> PostAdjustmentCommandService
+SettlementOrchestrator --> Queries
+SubmitSettlementCommandService --> SettlementPolicyAgent : gate (fails closed)
+SubmitSettlementCommandService --> SettlementSaga
+SettlementSaga --> LedgerService
+SettlementSaga --> ClearingGateway
+SettlementSaga --> OutboxWriter
+PostAdjustmentCommandService --> LedgerService
+PostAdjustmentCommandService --> OutboxWriter
+ClearingGateway <|.. SimulatedClearingGateway
+EventPublisher <|.. ServiceBusEventPublisher
+EventPublisher <|.. LoggingEventPublisher
+OutboxRelay --> EventPublisher
+EventFeedController ..> OutboxWriter : reads outbox_event
+SettlementSaga ..> Settlement
+@enduml

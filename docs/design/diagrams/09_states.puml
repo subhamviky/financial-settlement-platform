@@ -1,0 +1,18 @@
+@startuml
+!include ../common/style.puml
+title Settlement states (aggregate) and audit verdicts
+state "Settlement" as S {
+  [*] --> RECEIVED
+  RECEIVED --> LEDGER_POSTED : T1 posted
+  RECEIVED --> REJECTED : policy gate / funds / account
+  LEDGER_POSTED --> COMPLETED : T2 cleared
+  LEDGER_POSTED --> COMPENSATING : T3 declined / unavailable
+  COMPENSATING --> COMPENSATED : reversal entries
+  COMPLETED --> COMPLETED : adjustments (write-off, refund)
+}
+state "Audit finding" as F {
+  [*] --> CLEARED : no rule hit
+  [*] --> UNCONFIRMED : hit, not confirmed by the system of record
+  [*] --> FLAGGED : hit and confirmed
+}
+@enduml
