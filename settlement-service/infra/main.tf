@@ -173,6 +173,14 @@ resource "azurerm_container_app" "app" {
         name  = "KEY_VAULT_URI"
         value = azurerm_key_vault.app.vault_uri
       }
+      # events.tf: the outbox relay sends events to audit-ai's queue when it is configured
+      dynamic "env" {
+        for_each = local.event_publisher_env
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
       liveness_probe {
         transport = "HTTP"
         port      = var.container_port

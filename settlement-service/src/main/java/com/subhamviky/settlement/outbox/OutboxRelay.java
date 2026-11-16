@@ -27,7 +27,7 @@ public class OutboxRelay {
     public int relay() {
         List<OutboxEvent> batch = outbox.findByPublishedAtIsNullOrderByIdAsc(PageRequest.of(0, 100));
         for (OutboxEvent event : batch) {
-            publisher.publish(event.getEventType(), event.getPayload());
+            publisher.publish(event);
             event.markPublished();
         }
         return batch.size();

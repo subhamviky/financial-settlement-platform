@@ -57,6 +57,7 @@ public class OutboxEvent {
 
     public Long getId() { return id; }
     public UUID getEventId() { return eventId; }
+    public String getTenantId() { return tenantId; }
     public String getEventType() { return eventType; }
     public String getPayload() { return payload; }
     public Instant getPublishedAt() { return publishedAt; }

@@ -31,3 +31,26 @@ run "plan_with_mocks" {
     error_message = "The application database must be named settlement."
   }
 }
+
+run "outbox_publishes_to_audit_queue" {
+  command = plan
+
+  variables {
+    audit_events_namespace = "sb-audit-ai-service-dev.servicebus.windows.net"
+    audit_events_queue     = "settlement-events"
+  }
+
+  assert {
+    condition     = contains([for e in azurerm_container_app.app.template[0].container[0].env : "${e.name}=${e.value}"], "SETTLEMENT_EVENTS_SERVICEBUS_QUEUE=settlement-events")
+    error_message = "With audit-ai's queue configured, the outbox relay sends to it."
+  }
+}
+
+run "outbox_only_logs_without_a_queue" {
+  command = plan
+
+  assert {
+    condition     = !contains([for e in azurerm_container_app.app.template[0].container[0].env : e.name], "SETTLEMENT_EVENTS_SERVICEBUS_QUEUE")
+    error_message = "Without a queue, the relay logs and audit-ai reads the feed."
+  }
+}

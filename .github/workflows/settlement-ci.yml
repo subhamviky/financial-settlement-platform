@@ -26,7 +26,11 @@ jobs:
           E2A="v$(sed -n 's:.*<e2a.version>\(.*\)</e2a.version>.*:\1:p' pom.xml)"
           git clone -q --depth 1 --branch "$E2A" https://github.com/subhamviky/e2a-framework.git "$RUNNER_TEMP/e2a"
           mvn -B -q -f "$RUNNER_TEMP/e2a/java/pom.xml" install -DskipTests
-      - name: Build and test (Java 21, H2 in PostgreSQL mode)
+      - name: Start the Service Bus emulator (the outbox relay's publisher is tested on it)
+        run: bash "$GITHUB_WORKSPACE/.github/start-servicebus-emulator.sh"
+      - name: Build and test (Java 21, H2 in PostgreSQL mode; the Service Bus publisher on the emulator)
+        env:
+          SERVICEBUS_CONNECTION_STRING: "Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;"
         run: mvn -B verify
       - name: Keep the events the tests produced, for the contract check
         uses: actions/upload-artifact@v6
@@ -47,12 +51,14 @@ jobs:
       - run: pipx install "poetry>=2.0,<3"
       - run: poetry install --no-interaction
       - run: poetry run pytest -q
-      - name: Start the Cosmos DB emulator
+      - name: Start the Cosmos DB and Service Bus emulators
         run: |
           docker run -d --name cosmos -p 8081:8081 mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview
+          bash "$GITHUB_WORKSPACE/.github/start-servicebus-emulator.sh"
           for _ in $(seq 90); do docker logs cosmos 2>&1 | grep -q "Gateway=OK" && break; sleep 2; done
-      - name: Tests again with the state in Cosmos DB (e2a-adapters), including several replicas on one container
+      - name: Tests again with the state in Cosmos DB, several replicas on one container, events from Service Bus
         env:
+          SERVICEBUS_CONNECTION_STRING: "Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;"
           AUDIT_STATE_BACKEND: cosmos
           COSMOS_ENDPOINT: http://127.0.0.1:8081
           # the emulator's published, well-known key (not a secret)

@@ -40,3 +40,26 @@ run "plan_with_mocks" {
     error_message = "Ingress must send traffic to the port the Python image serves on (8000)."
   }
 }
+
+run "settlement_events_queue" {
+  command = plan
+
+  variables {
+    event_publisher_principal_ids = ["11111111-1111-1111-1111-111111111111"]
+  }
+
+  assert {
+    condition     = azurerm_servicebus_queue.events.name == "settlement-events" && azurerm_servicebus_queue.events.max_delivery_count == 5
+    error_message = "settlement-service's events arrive on the settlement-events queue, dead-lettered after 5 deliveries."
+  }
+
+  assert {
+    condition     = azurerm_role_assignment.event_publishers["11111111-1111-1111-1111-111111111111"].role_definition_name == "Azure Service Bus Data Sender"
+    error_message = "The publisher may send to this queue, nothing more."
+  }
+
+  assert {
+    condition     = contains([for e in azurerm_container_app.app.template[0].container[0].env : e.name], "SERVICEBUS_QUEUE") && azurerm_container_app.app.template[0].min_replicas >= 1
+    error_message = "A replica always consumes from the queue."
+  }
+}

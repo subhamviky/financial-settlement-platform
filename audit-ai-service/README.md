@@ -25,3 +25,21 @@ Requirements and the step-by-step guide live in the private hub (`settlement/`).
 [E2A](https://github.com/subhamviky/e2a-framework) ·
 [A2C · G2C · P0](https://github.com/subhamviky/a2c-framework) ·
 [Capability-Oriented DSA](https://github.com/subhamviky/capability-oriented-dsa)
+## Settlement events on Service Bus (E2A v1.7.x)
+
+settlement-service's outbox relay sends every event to this service's `settlement-events` queue: the event JSON, with the event id as the message id and the idempotency key, and the tenant and event type as application properties. A background worker receives the events, and each one is settled by E2A's `IdempotentConsumer` (`services/consumer.py`) under one claim on its `event_id`. The claim is stored in Cosmos DB, so every replica shares it.
+
+| Path | What happens |
+|---|---|
+| Queue (normal path) | Audited and acknowledged. A redelivery settles as `duplicate`. An event type this service does not audit is acknowledged without being read. |
+| Queue (poison message) | A body that breaks the contract, or a tenant attribute that disagrees with the envelope, goes to the dead-letter subqueue at once, with the reason. |
+| `POST /audits/poll` (event feed) | The catch-up path. It settles through the same consumer, so an event that arrives on both paths is audited once. |
+| `POST /audits/reconcile` | Settles the dead letters under a lease. A dead letter whose finding already exists is removed. One that never took effect is replayed. A poison one stays for a person to inspect. |
+| `POST /audits/consume` | Settles one batch by hand. The worker does this continuously. |
+
+**Configuration:**
+- `SERVICEBUS_NAMESPACE` (`<name>.servicebus.windows.net`; the managed identity authenticates, with no secret) or `SERVICEBUS_CONNECTION_STRING` (the emulator).
+- `SERVICEBUS_QUEUE` (default `settlement-events`).
+- With neither the namespace nor the connection string set, the service uses the event feed only, as before.
+
+**Terraform:** `infra/events.tf` grants settlement-service's identity *Data Sender* on this one queue. One replica always runs, to consume.
