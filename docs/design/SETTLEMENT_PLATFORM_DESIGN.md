@@ -410,7 +410,7 @@ CI validates the events the Java tests really produce against the schema. The re
 | `settlement.outbox.relay-interval-ms` | settlement | 2000 | Relay schedule |
 | `settlement.recovery.stale-after`, `settlement.recovery.interval-ms` | settlement | PT2M; 30000 | Stuck-settlement recovery |
 | `SETTLEMENT_EVENTS_SERVICEBUS_QUEUE`, `_NAMESPACE`, `_CONNECTION_STRING`, `AZURE_CLIENT_ID` | settlement | unset: logging publisher | Service Bus publisher (managed identity, or emulator) |
-| `DB_URL`, `DB_USER`, `DB_PASSWORD` (profile `prod`) | settlement | — | PostgreSQL (not yet set by Terraform: G-5) |
+| `SPRING_PROFILES_ACTIVE=prod`, `DB_URL`, `DB_USER`, `DB_PASSWORD` | settlement | set by `postgres.tf` | PostgreSQL. The URL uses `sslmode=require`. The password is a Container App secret referencing Key Vault, read with the app's identity. |
 | `AUDIT_TENANT`, `SETTLEMENT_API_URL`, `POLICY_DIR` | audit-ai | acme; `http://localhost:8080`; `policies/` | Wiring |
 | `AUDIT_STATE_BACKEND`, `COSMOS_ENDPOINT`, `COSMOS_DATABASE`, `COSMOS_CONTAINER`, `COSMOS_KEY` | audit-ai | memory; —; audit; state; — | State ports (managed identity unless a key is set) |
 | `SERVICEBUS_NAMESPACE` or `SERVICEBUS_CONNECTION_STRING`, `SERVICEBUS_QUEUE` | audit-ai | unset; settlement-events | Queue consumer |
@@ -423,7 +423,7 @@ CI validates the events the Java tests really produce against the schema. The re
 | Evidence | What it proves |
 |---|---|
 | settlement-service tests (11 classes, 31 test methods; H2; the Service Bus publisher on the emulator in CI) | AC-1 to AC-8: completion, replay, conflict, policy and funds rejection, compensation, the feed, validation. Adjustments (write-off, refund, limits, concurrency, replay). Publisher selection. The policy agent's contract. Service callers: granted tenant and action served, no claims `401`, tenant or action not granted `403`, health open. |
-| audit-ai tests (12 modules, 37 test functions; again with Cosmos DB and Service Bus emulators, several replicas on one container) | AC-9 to AC-16: verdicts, confirmation, de-duplication across paths, degraded fallback, risk rules, contracts. Shared state, the queue consumer and dead letters, identity at ingress, the paged index. |
+| audit-ai tests (13 modules, 41 test functions; again with Cosmos DB and Service Bus emulators, several replicas on one container) | AC-9 to AC-16: verdicts, confirmation, de-duplication across paths, degraded fallback, risk rules, contracts. Shared state, the queue consumer and dead letters, identity at ingress, the paged index. |
 | CI `audit-ai-service` | The tests twice (memory; emulators), E2A conformance (strict), the release gate on `evals/golden.json` |
 | CI `contracts` | The events settlement-service's tests produced satisfy the schema |
 | CI `terraform` | Both stacks: `fmt`, `validate`, `terraform test` with mock providers |
@@ -438,10 +438,10 @@ CI validates the events the Java tests really produce against the schema. The re
 | G-2 | A settlement left in LEDGER_POSTED by a crash between T1 and T2/T3 was never finished or compensated | Fixed | `StuckSettlementRecovery` (Sections 8.1, 10). It relies on the clearing port answering the same for the same settlement id. Recovery also completes the client's idempotency record (from the key now stored on the settlement), so a retry replays the outcome. A crash before T1 commits leaves no settlement; that request's record stays IN_PROGRESS (`409` on retry), with no money moved. |
 | G-3 | `VelocityWindow` counts in process memory: per replica, lost on restart | Gap | Keep the window in the shared store, or count from the feed |
 | G-4 | `OutboxRelay` runs on every replica without a lock | Note | Correct (at-least-once, consumers de-duplicate), but duplicates are sent under scale-out; a lease or `SELECT ... FOR UPDATE SKIP LOCKED` would avoid them |
-| G-5 | `DB_URL` and the password secret are not set on the Container App by Terraform | Gap (deployment) | From the requirements' backlog; needed for a real deployment |
+| G-5 | The database settings and password were not set on the Container App, and nothing selected the `prod` profile, so the service would have run on in-memory H2 | Fixed | `postgres.tf`: the `prod` profile, the URL and user; the password as a Key Vault secret referenced by the Container App with its identity; a firewall rule for Azure services (`db_allow_azure_services`; VNet integration is the private alternative). The deploying identity gets Key Vault Secrets Officer to write the secret. Not run against a live server. |
 | G-6 | The A2C scaffold's Service Bus namespace and queue `events` in settlement-service's stack are unused | Note | Remove, or use for something specific |
 | G-7 | `outbox_event.payload` is `varchar(4000)` | Limit | Long reasons could exceed it; `text` would remove the limit |
-| G-8 | audit-ai's settlement-service client has no circuit breaker or retry | Gap | Retries come from queue redelivery; the feed path fails the poll |
+| G-8 | audit-ai's settlement-service client had no circuit breaker or retry | Fixed | Reads are retried on transport failures and 5xx (jittered backoff, retry budget), never on 4xx, behind a circuit breaker that refuses at once during an outage (`settlement_client.py`) |
 | G-9 | `minReplicas` 0 for settlement-service: no relay runs while scaled to zero | Note | Events wait in the outbox until a request wakes a replica; set 1 if timeliness matters |
 | D-1 | The requirements list the Service Bus publisher and durable findings as backlog | Done since | Implemented (Sections 5.4, 6) |
 
