@@ -157,6 +157,13 @@ resource "azurerm_container_app" "app" {
     identity_ids = [azurerm_user_assigned_identity.app.id]
   }
 
+  # postgres.tf: the database password, read from Key Vault with the app's identity (never a plain setting)
+  secret {
+    name                = "db-password"
+    key_vault_secret_id = azurerm_key_vault_secret.db_password.versionless_id
+    identity            = azurerm_user_assigned_identity.app.id
+  }
+
   template {
     min_replicas = 0
     max_replicas = 3
@@ -172,6 +179,18 @@ resource "azurerm_container_app" "app" {
       env {
         name  = "KEY_VAULT_URI"
         value = azurerm_key_vault.app.vault_uri
+      }
+      # postgres.tf: the prod profile against the Flexible Server (G-5)
+      dynamic "env" {
+        for_each = local.database_env
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+      env {
+        name        = "DB_PASSWORD"
+        secret_name = "db-password"
       }
       # identity.tf: service callers verified at ingress (hub design note SI-01)
       dynamic "env" {
