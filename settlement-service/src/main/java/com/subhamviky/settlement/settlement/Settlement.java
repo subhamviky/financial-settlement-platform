@@ -41,6 +41,10 @@ public class Settlement {
     @Column(name = "failure_reason")
     private String failureReason;
 
+    /** The request's Idempotency-Key, so recovery can complete the client's idempotency record. */
+    @Column(name = "idempotency_key")
+    private String idempotencyKey;
+
     @Version
     private long version;
 
@@ -54,7 +58,12 @@ public class Settlement {
     }
 
     public static Settlement receive(String tenantId, SubmitSettlementCommand command) {
+        return receive(tenantId, command, null);
+    }
+
+    public static Settlement receive(String tenantId, SubmitSettlementCommand command, String idempotencyKey) {
         Settlement s = new Settlement();
+        s.idempotencyKey = idempotencyKey;
         s.id = UUID.randomUUID();
         s.tenantId = tenantId;
         s.payerAccount = command.payerAccount();
@@ -88,4 +97,6 @@ public class Settlement {
     public String getCurrency() { return currency; }
     public SettlementStatus getStatus() { return status; }
     public String getFailureReason() { return failureReason; }
+    public Instant getUpdatedAt() { return updatedAt; }
+    public String getIdempotencyKey() { return idempotencyKey; }
 }
