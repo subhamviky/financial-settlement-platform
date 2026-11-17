@@ -173,6 +173,14 @@ resource "azurerm_container_app" "app" {
         name  = "KEY_VAULT_URI"
         value = azurerm_key_vault.app.vault_uri
       }
+      # identity.tf: service callers verified at ingress (hub design note SI-01)
+      dynamic "env" {
+        for_each = local.identity_env
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
       # events.tf: the outbox relay sends events to audit-ai's queue when it is configured
       dynamic "env" {
         for_each = local.event_publisher_env

@@ -77,3 +77,25 @@ run "identity_at_ingress" {
     error_message = "The deploying directory's users belong to this deployment's tenant."
   }
 }
+
+run "settlement_calls_carry_audit_ai_identity" {
+  command = plan
+  variables {
+    settlement_api_url = "https://settlement.example"
+    settlement_scope   = "api://landscape-test-settlement/.default"
+  }
+  assert {
+    condition = alltrue([for kv in ["SETTLEMENT_API_URL=https://settlement.example", "E2A_WORKLOAD_IDENTITY=azure",
+      "E2A_WORKLOAD_TOKEN_SCOPES={\"https://settlement.example\":\"api://landscape-test-settlement/.default\"}"] :
+    contains([for e in azurerm_container_app.app.template[0].container[0].env : "${e.name}=${e.value}"], kv)])
+    error_message = "audit-ai calls settlement-service with its managed identity's token for the settlement app"
+  }
+}
+
+run "no_token_without_a_scope" {
+  command = plan
+  assert {
+    condition     = !contains([for e in azurerm_container_app.app.template[0].container[0].env : e.name], "E2A_WORKLOAD_IDENTITY")
+    error_message = "without settlement_scope, calls carry no token"
+  }
+}

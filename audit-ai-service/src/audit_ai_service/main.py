@@ -10,6 +10,7 @@ import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from e2a_adapters.workload import workload_credentials
 from fastapi import FastAPI
 
 from .routers.audits import router as audits_router
@@ -55,7 +56,8 @@ async def lifespan(app: FastAPI):
 _broker, _queue, _lease = event_ports()
 app = FastAPI(title="audit-ai-service", lifespan=lifespan)
 app.state.audit_service = AuditService(
-    source=HttpSettlementClient(os.getenv("SETTLEMENT_API_URL", "http://localhost:8080")),
+    source=HttpSettlementClient(os.getenv("SETTLEMENT_API_URL", "http://localhost:8080"),
+                                credentials=workload_credentials()),       # SI-01: None unless configured
     rag=PolicyRAGPipeline(POLICY_DIR),
     llm=build_audit_llm(),
     tenant_id=os.getenv("AUDIT_TENANT", "acme"),

@@ -101,7 +101,7 @@ jobs:
           terraform_wrapper: false
       - name: fmt, validate and test against mock providers (no Azure account)
         run: |
-          for dir in settlement-service/infra audit-ai-service/infra; do
+          for dir in settlement-service/infra audit-ai-service/infra landscape-identity; do
             echo "== $dir"
             (cd "$dir" && terraform init -backend=false -input=false && terraform fmt -check -recursive && terraform validate && terraform test)
           done
