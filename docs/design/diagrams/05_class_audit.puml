@@ -1,0 +1,57 @@
+@startuml
+!include ../common/style.puml
+title audit-ai-service: class model
+package "E2A / e2a-adapters / DSA (installed)" #F7F7F7 {
+  abstract class BaseAgent <<E2A>>
+  abstract class BaseRAGPipeline <<E2A>>
+  abstract class IdempotentConsumer <<E2A>>
+  abstract class ProjectReleaseGate <<E2A>>
+  class "CosmosTransactionalStore\nCosmosIdempotencyStore\nCosmosLease" as Cosmos <<e2a-adapters>>
+  class ServiceBusBroker <<e2a-adapters>>
+  class DSAFacade <<DSA>>
+}
+class AuditService {
+  +poll_once(): int
+  +consume(wait): dict
+  +reconcile_dead_letters(): dict
+  +process_raw(raw): AuditFinding?
+  +audit_and_record(event): AuditFinding
+  +finding(event_id)
+  +list_findings(anomaly?)
+  -_audit(event) / -_confirmed(event)
+}
+class SettlementEventConsumer {
+  _tenant_of / _idempotency_key
+  _handle / _confirm
+}
+class RiskRules {
+  +evaluate(event): (band, hits)
+}
+class VelocityWindow <<in-process>>
+class SettlementAuditAgent {
+  _apply_policy / _build_messages
+  _evaluate_output (groundedness)
+  _fallback / _handle_error
+}
+class PolicyRAGPipeline {
+  _search_index / _rerank
+  _evaluate_answer
+}
+class PagedIndex
+class HttpSettlementClient
+class AuditReleaseGate
+BaseAgent <|-- SettlementAuditAgent
+BaseRAGPipeline <|-- PolicyRAGPipeline
+IdempotentConsumer <|-- SettlementEventConsumer
+ProjectReleaseGate <|-- AuditReleaseGate
+AuditService --> RiskRules
+RiskRules --> VelocityWindow
+RiskRules --> DSAFacade : risk_band (LOWER_BOUND)
+AuditService --> SettlementAuditAgent
+SettlementAuditAgent --> PolicyRAGPipeline
+AuditService --> HttpSettlementClient : feed, confirm
+AuditService --> Cosmos : rows, claims, lease
+AuditService --> PagedIndex
+AuditService ..> ServiceBusBroker : queue
+SettlementEventConsumer --> AuditService
+@enduml

@@ -1,0 +1,43 @@
+@startuml
+!include ../common/style.puml
+title Submitting a settlement: idempotency, policy gate, saga with compensation, outbox
+autonumber "<b>0."
+actor Client as U
+participant "SettlementController" as C
+participant "SettlementOrchestrator\n(BaseOrchestrator)" as O
+database "idempotency_record" as I
+participant "SubmitSettlementCommandService" as S
+participant "SettlementPolicyAgent" as P
+participant "SettlementSaga" as G
+participant "LedgerService" as L
+participant "ClearingGateway\n(breaker + retry)" as K
+database "PostgreSQL\n(settlement, account,\nledger_entry, outbox_event)" as D
+U -> C : POST /api/v1/settlements\nX-Tenant-Id, Idempotency-Key
+C -> O : execute(command)
+O -> I : INSERT claim (tenant, key, fingerprint)
+alt replay of a finished request
+  O --> C : stored response (Idempotent-Replayed: true)
+else same key, different content
+  O --> C : 409
+else new
+  O -> S : mutate(command)
+  S -> P : run(state) (deterministic)
+  alt not APPROVED (any other outcome)
+    S -> G : reject(...)
+    G -> D : T: settlement REJECTED + outbox settlement.rejected
+    S --> O : 422
+  else APPROVED
+    S -> G : run(...)
+    G -> D : T1: RECEIVED -> LEDGER_POSTED, debit payer, credit payee,\noutbox ledger.posted (or REJECTED on funds)
+    G -> K : confirm (outside any transaction)
+    alt cleared
+      G -> D : T2: COMPLETED + outbox settlement.completed
+    else declined or unavailable
+      G -> D : T3: COMPENSATING -> COMPENSATED,\nreversal entries + outbox settlement.compensated
+    end
+    S --> O : 201 (COMPLETED / COMPENSATED) or 422
+  end
+  O -> I : store response
+end
+C --> U : status + body
+@enduml

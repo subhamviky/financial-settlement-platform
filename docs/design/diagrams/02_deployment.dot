@@ -1,0 +1,22 @@
+digraph G {
+  graph [rankdir=LR, compound=true, fontname="DejaVu Sans", fontsize=13, labelloc=t, label=<<b>Deployment on Azure (settlement-service/infra, audit-ai-service/infra)</b>>, fontcolor="#1F3864", nodesep=0.35, ranksep=0.6, pad=0.25];
+  node [shape=box, style="rounded,filled", fillcolor="#F4F8FC", color="#1F3864", fontname="DejaVu Sans", fontsize=10, fontcolor="#1F3864", margin="0.12,0.05"];
+  edge [color="#2E4A6B", fontname="DejaVu Sans", fontsize=9];
+  subgraph cluster_s { label=<<b>Resource group rg-settlement-service-&lt;env&gt;</b>>; style="rounded,filled"; fillcolor="#EAF2FA"; color="#2E75B6";
+    sca [label="Container App ca-settlement-service\n0.5 vCPU, 1 GiB, 0-3 replicas\nexternal ingress, user-assigned identity"];
+    pg [label="PostgreSQL Flexible Server 16\nB_Standard_B1ms, 7-day backups\ndatabase settlement"];
+    skv [label="Key Vault"]; ssb [label="Service Bus namespace\nqueue events (A2C scaffold, unused)"]; slog [label="Log Analytics"];
+  }
+  subgraph cluster_a { label=<<b>Resource group rg-audit-ai-service-&lt;env&gt;</b>>; style="rounded,filled"; fillcolor="#EAF2FA"; color="#2E75B6";
+    aca [label="Container App ca-audit-ai-service\n1-3 replicas (one always receives)\nexternal ingress + Entra authentication"];
+    asb [label="Service Bus namespace\nqueue settlement-events\nmax deliveries, dead-lettering"];
+    cos [label="Cosmos DB (serverless, Strong)\naudit/state, pk per item\nlocal auth off, continuous backup"];
+    akv [label="Key Vault"]; alog [label="Log Analytics"];
+  }
+  sca -> pg [xlabel="JDBC (DB_URL, not wired yet)", style=dashed];
+  sca -> asb [xlabel="Data Sender (managed identity)"];
+  asb -> aca [label="Data\nReceiver"];
+  aca -> cos [label="Data Contributor\n(managed identity)"];
+  aca -> sca [xlabel="HTTPS confirm"];
+  sca -> slog; aca -> alog; sca -> skv [style=dotted]; aca -> akv [style=dotted];
+}

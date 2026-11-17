@@ -1,0 +1,18 @@
+digraph G {
+  graph [rankdir=LR, compound=true, fontname="DejaVu Sans", fontsize=13, labelloc=t, label=<<b>Settlement platform: system context</b>>, fontcolor="#1F3864", nodesep=0.35, ranksep=0.6, pad=0.25];
+  node [shape=box, style="rounded,filled", fillcolor="#F4F8FC", color="#1F3864", fontname="DejaVu Sans", fontsize=10, fontcolor="#1F3864", margin="0.12,0.05"];
+  edge [color="#2E4A6B", fontname="DejaVu Sans", fontsize=9];
+  client [label="Clients\n(O2C agent, operators)", fillcolor="#FBF3E6", color="#D4A017", fontcolor="#7A5A00"];
+  recon [label="reconciliation-service (AWS)\nfeed reader, ledger adjustments", fillcolor="#FBF3E6", color="#D4A017", fontcolor="#7A5A00"];
+  comp [label="Compliance and operations\n(findings)", fillcolor="#FBF3E6", color="#D4A017", fontcolor="#7A5A00"];
+  entra [label="Microsoft Entra ID\n(Container Apps authentication)", fillcolor="#FBF3E6", color="#D4A017", fontcolor="#7A5A00"];
+  subgraph cluster_p { label=<<b>financial-settlement-platform (Azure)</b>>; style="rounded,filled"; fillcolor="#EAF2FA"; color="#2E75B6";
+    ss [label="settlement-service (Java)\nsystem of record: ledger, saga, outbox"];
+    ai [label="audit-ai-service (Python)\nrisk rules, confirmation, explanation"];
+  }
+  model [label="Model (optional)\nSimulatedLLMService by default;\nmanaged providers by profile", fillcolor="#F2F2F2", color="#7F7F7F"];
+  client -> ss [xlabel="POST /settlements"]; recon -> ss [xlabel="GET /events,\nPOST /adjustments"];
+  ss -> ai [xlabel="events (Service Bus)\nor feed"]; ai -> ss [xlabel="confirm (GET settlement)"];
+  comp -> ai [xlabel="GET /audits"]; entra -> ai [style=dashed, xlabel="verified caller"];
+  ai -> model [style=dashed, xlabel="explanation"];
+}
