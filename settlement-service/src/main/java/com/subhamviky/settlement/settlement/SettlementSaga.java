@@ -5,6 +5,8 @@ import com.subhamviky.settlement.generated.NfrSupport;
 import com.subhamviky.settlement.ledger.LedgerRejection;
 import com.subhamviky.settlement.ledger.LedgerService;
 import com.subhamviky.settlement.outbox.OutboxWriter;
+import java.util.UUID;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -17,6 +19,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  *   --  clearing confirmation      (outside any transaction; retry + circuit breaker)
  *   T2  LEDGER_POSTED -> COMPLETED                               | or
  *   T3  LEDGER_POSTED -> COMPENSATING -> COMPENSATED  (reversal entries)
+ *
+ * A crash between T1 and T2/T3 leaves the settlement in LEDGER_POSTED; StuckSettlementRecovery
+ * finishes it later through the same clear() and finish().
  */
 @Component
 public class SettlementSaga {
@@ -40,7 +45,7 @@ public class SettlementSaga {
     /** Records a settlement the policy gate refused. No money moves. */
     public Settlement reject(SubmitSettlementCommand command, CommandContext ctx, String reason) {
         return tx.execute(status -> {
-            Settlement received = Settlement.receive(ctx.tenantId(), command);
+            Settlement received = Settlement.receive(ctx.tenantId(), command, ctx.idempotencyKey());
             received.moveTo(SettlementStatus.REJECTED, reason);
             Settlement s = settlements.save(received);
             outbox.write(OutboxWriter.SETTLEMENT_REJECTED, s, ctx);
@@ -52,7 +57,7 @@ public class SettlementSaga {
         Settlement posted = tx.execute(status -> {
             // save() merges an entity whose id is already set and returns the MANAGED copy:
             // all further changes must go to that returned instance.
-            Settlement s = settlements.save(Settlement.receive(ctx.tenantId(), command));
+            Settlement s = settlements.save(Settlement.receive(ctx.tenantId(), command, ctx.idempotencyKey()));
             try {
                 ledger.post(s.getId(), s.getTenantId(), s.getPayerAccount(), s.getPayeeAccount(), s.getAmount(), s.getCurrency());
                 s.moveTo(SettlementStatus.LEDGER_POSTED);
@@ -67,31 +72,48 @@ public class SettlementSaga {
             return posted;
         }
 
-        boolean cleared;
-        String reason = "declined by clearing";
-        try {
-            cleared = NfrSupport.retryWithBackoff(() -> clearing.confirm(posted), clearingBreaker, 2, 50);
-        } catch (RuntimeException unavailable) {
-            cleared = false;
-            reason = "clearing unavailable: " + unavailable.getMessage();
-        }
+        return finish(posted.getId(), clear(posted), ctx);
+    }
 
-        if (cleared) {
+    /** The clearing decision for a posted settlement: retried, behind the circuit breaker. */
+    public ClearingResult clear(Settlement posted) {
+        try {
+            boolean cleared = NfrSupport.retryWithBackoff(() -> clearing.confirm(posted), clearingBreaker, 2, 50);
+            return new ClearingResult(cleared, cleared ? null : "declined by clearing");
+        } catch (RuntimeException unavailable) {
+            return new ClearingResult(false, "clearing unavailable: " + unavailable.getMessage());
+        }
+    }
+
+    /**
+     * T2 or T3 for a settlement in LEDGER_POSTED. Used by the request that posted it and by
+     * {@link StuckSettlementRecovery}. Whichever comes second finds the settlement already
+     * finished (or loses the optimistic lock) and returns it as it stands: one outcome, one event.
+     */
+    public Settlement finish(UUID id, ClearingResult result, CommandContext ctx) {
+        try {
             return tx.execute(status -> {
-                Settlement s = settlements.findById(posted.getId()).orElseThrow();
-                s.moveTo(SettlementStatus.COMPLETED);
-                outbox.write(OutboxWriter.SETTLEMENT_COMPLETED, s, ctx);
+                Settlement s = settlements.findById(id).orElseThrow();
+                if (s.getStatus() != SettlementStatus.LEDGER_POSTED) {
+                    return s;                                   // already finished by the other path
+                }
+                if (result.cleared()) {
+                    s.moveTo(SettlementStatus.COMPLETED);
+                    outbox.write(OutboxWriter.SETTLEMENT_COMPLETED, s, ctx);
+                    return s;
+                }
+                s.moveTo(SettlementStatus.COMPENSATING);
+                ledger.reverse(s.getId(), s.getTenantId(), s.getPayerAccount(), s.getPayeeAccount(), s.getAmount(), s.getCurrency());
+                s.moveTo(SettlementStatus.COMPENSATED, result.reason());
+                outbox.write(OutboxWriter.SETTLEMENT_COMPENSATED, s, ctx);
                 return s;
             });
+        } catch (ObjectOptimisticLockingFailureException concurrent) {
+            return settlements.findById(id).orElseThrow();      // the other path committed first
         }
-        String compensationReason = reason;
-        return tx.execute(status -> {
-            Settlement s = settlements.findById(posted.getId()).orElseThrow();
-            s.moveTo(SettlementStatus.COMPENSATING);
-            ledger.reverse(s.getId(), s.getTenantId(), s.getPayerAccount(), s.getPayeeAccount(), s.getAmount(), s.getCurrency());
-            s.moveTo(SettlementStatus.COMPENSATED, compensationReason);
-            outbox.write(OutboxWriter.SETTLEMENT_COMPENSATED, s, ctx);
-            return s;
-        });
+    }
+
+    /** The clearing decision: cleared, or not with the reason recorded on the compensation. */
+    public record ClearingResult(boolean cleared, String reason) {
     }
 }

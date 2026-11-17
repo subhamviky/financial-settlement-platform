@@ -9,7 +9,7 @@
 | Project | `financial-settlement-platform` — services `settlement-service` and `audit-ai-service` |
 | Document type | Design Document (HLD + LLD) |
 | Author | Subham Gupta, Principal Platform Architect |
-| Source baseline | `subhamviky/financial-settlement-platform` `main` at `a08e39e`:<ul><li>**settlement-service:** Java 21, Spring Boot 3.5.7, about 1,800 lines in 43 classes, Flyway V1–V2, `infra/*.tf`, 8 test classes. Built on **e2a-java 1.3.0** (`e2a-cqrs`, `e2a-spring-jpa`, `e2a-core`).</li><li>**audit-ai-service:** Python 3.12, FastAPI, about 900 lines, `infra/*.tf`, 11 test modules. Built on **E2A v1.7.5** and **e2a-adapters 1.7.5** `[azure]`.</li><li>**Shared:** `capability-oriented-dsa`; `contracts/events/`.</li></ul> |
+| Source baseline | `subhamviky/financial-settlement-platform` `main` at `a08e39e`:<ul><li>**settlement-service:** Java 21, Spring Boot 3.5.7, about 1,800 lines in 43 classes, Flyway V1–V3, `infra/*.tf`, 10 test classes. Built on **e2a-java 1.3.0** (`e2a-cqrs`, `e2a-spring-jpa`, `e2a-core`).</li><li>**audit-ai-service:** Python 3.12, FastAPI, about 900 lines, `infra/*.tf`, 11 test modules. Built on **E2A v1.7.5** and **e2a-adapters 1.7.5** `[azure]`.</li><li>**Shared:** `capability-oriented-dsa`; `contracts/events/`.</li></ul> |
 | Date | 16 November 2026 |
 | Status | Describes the code on `main`. Section 14 lists where the code and the original requirements differ, and the open gaps. |
 
@@ -174,6 +174,7 @@ The requirements describe the first build. The code has moved on; Section 14 lis
 | `SettlementController`, `EventFeedController` | settlement | HTTP exposure; headers to `CommandContext` |
 | `SettlementOrchestrator` | settlement | Routes actions; idempotency (inherited) |
 | `SubmitSettlementCommandService`, `SettlementSaga` | settlement | Policy gate, then T1, clearing, T2 or T3 |
+| `StuckSettlementRecovery` | settlement | Finishes settlements a crash left in LEDGER_POSTED (scheduled) |
 | `PostAdjustmentCommandService` | settlement | Write-offs and refunds of completed settlements |
 | `LedgerService` | settlement | Double entry |
 | `OutboxWriter`, `OutboxRelay`, `EventPublisher` | settlement | Events in the transaction; relay to Service Bus or log |
@@ -235,7 +236,7 @@ CI validates the events the Java tests really produce against the schema. The re
 | Table | Key | Notes |
 |---|---|---|
 | `account` | `id` | `tenant_id`, `currency`, `balance numeric(19,2)`, `version` (optimistic lock). Demo accounts for `acme`: ACC-1000, ACC-2000, ACC-3000, ACC-BLOCKED, ACC-WRITEOFF. |
-| `settlement` | `id uuid` | The aggregate: accounts, amount, currency, status, failure_reason, version, timestamps |
+| `settlement` | `id uuid` | The aggregate: accounts, amount, currency, status, failure_reason, version, timestamps, `idempotency_key` (the request's, V3); index (status, updated_at) for recovery (V3) |
 | `ledger_entry` | `id` identity | Append-only: settlement_id, account_id, direction, amount, posting_type (POSTING, REVERSAL, WRITE_OFF, REFUND); index on settlement_id |
 | `ledger_adjustment` | `id uuid` | tenant, settlement, type, amount, debit and credit accounts, reason, reference; index (tenant, settlement) |
 | `outbox_event` | `id` identity (= the feed's sequence) | `event_id` unique, tenant, aggregate_id, event_type, `payload varchar(4000)`, published_at; index (published_at, id) |
@@ -258,7 +259,7 @@ CI validates the events the Java tests really produce against the schema. The re
 | Package | Classes |
 |---|---|
 | `api` | `SettlementController`, `EventFeedController`, `ApiExceptionHandler` |
-| `settlement` | `Settlement`, `SettlementStatus`, `SettlementOrchestrator`, `SubmitSettlementCommand(Service)`, `SettlementSaga`, `SettlementQueryService`, `AccountQueryService`, `ClearingGateway`, `SimulatedClearingGateway`, views and repository |
+| `settlement` | `Settlement`, `SettlementStatus`, `SettlementOrchestrator`, `SubmitSettlementCommand(Service)`, `SettlementSaga`, `StuckSettlementRecovery`, `SettlementQueryService`, `AccountQueryService`, `ClearingGateway`, `SimulatedClearingGateway`, views and repository |
 | `adjustment` | `PostAdjustmentCommand(Service)`, `AdjustmentQueryService`, `LedgerAdjustment`, `AdjustmentType`, view and repository |
 | `ledger` | `LedgerService`, `Account`, `LedgerEntry`, `LedgerRejection`, repositories |
 | `outbox` | `OutboxWriter`, `OutboxEvent`, `OutboxRelay`, `EventPublisher`, `ServiceBusEventPublisher`, `LoggingEventPublisher`, `EventPublisherConfig`, repository |
@@ -298,7 +299,8 @@ CI validates the events the Java tests really produce against the schema. The re
 | `SettlementOrchestrator` (`BaseOrchestrator`) | Commands (`settlement.submit`, `settlement.adjust`) are claimed per (tenant, `Idempotency-Key`) with a fingerprint of the business content:<ul><li>**Replay:** returns the stored response with `Idempotent-Replayed: true`.</li><li>**Conflict:** the same key with different content is 409.</li><li>**In progress:** another request with the key is running: 409.</li></ul>Reads are not claimed. `handleError` counts `<action>.error` and logs. |
 | `SubmitSettlementCommandService` | Runs `SettlementPolicyAgent` with the policy settings in its `RequestContext`. Anything but `APPROVED` → `saga.reject` → 422. Otherwise `saga.run` → 201 (COMPLETED or COMPENSATED) or 422 (REJECTED on funds or account). SLO 2,500 ms. |
 | `SettlementPolicyAgent` (`BaseAgent`) | Deterministic `applyPolicy`. The violations: payer equals payee; amount above `max_amount` (1,000,000.00); a blocked account. Any violation sets `REJECTED` and raises a typed `GovernanceRefusal` (POLICY_VIOLATION). `handleError` also sets `REJECTED`: the gate fails closed. |
-| `SettlementSaga.run` | **T1** (transaction): save RECEIVED; post (debit payer, credit payee); LEDGER_POSTED + `ledger.posted`, or REJECTED + `settlement.rejected` on `LedgerRejection`. **Clearing**, outside any transaction: `retryWithBackoff` (2 retries, 50 ms base) behind a breaker (5 failures, 30 s). **T2:** COMPLETED + `settlement.completed`. Or **T3:** COMPENSATING → reversal entries → COMPENSATED + `settlement.compensated`, with the reason. |
+| `SettlementSaga.run` | **T1** (transaction): save RECEIVED; post (debit payer, credit payee); LEDGER_POSTED + `ledger.posted`, or REJECTED + `settlement.rejected` on `LedgerRejection`. **Clearing**, outside any transaction: `retryWithBackoff` (2 retries, 50 ms base) behind a breaker (5 failures, 30 s). **T2:** COMPLETED + `settlement.completed`. Or **T3:** COMPENSATING → reversal entries → COMPENSATED + `settlement.compensated`, with the reason. Clearing is `clear()`, T2/T3 is `finish(id, result, ctx)`: it re-reads the settlement and does nothing if it is no longer LEDGER_POSTED, and on an optimistic-lock conflict returns the settlement as the other writer left it. |
+| `StuckSettlementRecovery.recover(cutoff)` | Every `interval-ms` (30 s): up to 100 settlements in LEDGER_POSTED since before now − `stale-after` (2 min), oldest first, are asked of clearing again and finished with `finish()`. Then the client's idempotency record, left IN_PROGRESS by the crash, is completed with `201` and the settlement view, so a retry with the same `Idempotency-Key` replays the outcome instead of getting `409` for ever. One failure is logged and retried on the next run. Safe with several replicas and with a request still running (re-read plus `@Version`). |
 | `LedgerService` | `post`: funds-checked debit and credit of the same amount, POSTING. `reverse`: never funds-checked, REVERSAL. `adjust`: funds-checked, WRITE_OFF or REFUND. Accounts must exist for the tenant and match the currency, else `LedgerRejection`. |
 | `PostAdjustmentCommandService` | In one transaction:<ol><li>Lock the settlement (forced version increment).</li><li>404 if it is unknown for the tenant.</li><li>422 unless it is COMPLETED, and unless the total of this type stays within the ceiling (write-offs: `write-off-limit` 5.00; refunds: the settled amount).</li><li>Save the adjustment, post it, and write `ledger.adjusted`.</li></ol>**Write-off:** debit the payee, credit `ACC-WRITEOFF`. **Refund:** debit the payee, credit the payer. A concurrent adjustment loses the lock and gets 409. |
 | `OutboxWriter` | Builds the v1 envelope; stores it in `outbox_event`, inside the caller's transaction |
@@ -362,7 +364,8 @@ CI validates the events the Java tests really produce against the schema. The re
 | Two settlements debit one account at once | One commits; the other fails its optimistic lock and is an error (not retried) | `account.version` |
 | Insufficient funds or a wrong account | REJECTED, nothing posted | `LedgerRejection` in T1 |
 | Clearing declines, or stays unavailable after retries | COMPENSATED with reversal entries; balances restored; ledger balanced | T3 |
-| **The process stops between T1 and T2 or T3** | The settlement stays LEDGER_POSTED; no job finishes or compensates it | **Gap G-2** |
+| **The process stops between T1 and T2 or T3** | The settlement stays LEDGER_POSTED until `StuckSettlementRecovery` finds it (after `stale-after`), asks clearing again and completes or compensates it: one outcome, one event. A retry of the crashed request then replays that outcome. | Implemented (was G-2) |
+| **Recovery and a late request finish the same settlement** | The second finds it no longer LEDGER_POSTED, or loses the version check, and returns the outcome already recorded; no second posting or event | Implemented |
 | Two adjustments of one settlement at once | One commits; the other gets 409 | Forced version increment on the settlement row |
 | An adjustment would pass the limit | 422, rolled back | Check inside the locked transaction |
 | The relay crashes after sending | Re-sent; consumers de-duplicate | At-least-once and `event_id` |
@@ -397,6 +400,7 @@ CI validates the events the Java tests really produce against the schema. The re
 | `settlement.clearing.max-amount` | settlement | 250,000.00 | Simulated clearing declines above |
 | `settlement.adjustments.write-off-limit`, `write-off-account` | settlement | 5.00; ACC-WRITEOFF | Adjustments |
 | `settlement.outbox.relay-interval-ms` | settlement | 2000 | Relay schedule |
+| `settlement.recovery.stale-after`, `settlement.recovery.interval-ms` | settlement | PT2M; 30000 | Stuck-settlement recovery |
 | `SETTLEMENT_EVENTS_SERVICEBUS_QUEUE`, `_NAMESPACE`, `_CONNECTION_STRING`, `AZURE_CLIENT_ID` | settlement | unset: logging publisher | Service Bus publisher (managed identity, or emulator) |
 | `DB_URL`, `DB_USER`, `DB_PASSWORD` (profile `prod`) | settlement | — | PostgreSQL (not yet set by Terraform: G-5) |
 | `AUDIT_TENANT`, `SETTLEMENT_API_URL`, `POLICY_DIR` | audit-ai | acme; `http://localhost:8080`; `policies/` | Wiring |
@@ -408,7 +412,7 @@ CI validates the events the Java tests really produce against the schema. The re
 
 | Evidence | What it proves |
 |---|---|
-| settlement-service tests (8 classes, 21 test methods; H2; the Service Bus publisher on the emulator in CI) | AC-1 to AC-8: completion, replay, conflict, policy and funds rejection, compensation, the feed, validation. Adjustments (write-off, refund, limits, concurrency, replay). Publisher selection. The policy agent's contract. |
+| settlement-service tests (10 classes, 26 test methods; H2; the Service Bus publisher on the emulator in CI) | AC-1 to AC-8: completion, replay, conflict, policy and funds rejection, compensation, the feed, validation. Adjustments (write-off, refund, limits, concurrency, replay). Publisher selection. The policy agent's contract. |
 | audit-ai tests (11 modules, 35 test functions; again with Cosmos DB and Service Bus emulators, several replicas on one container) | AC-9 to AC-16: verdicts, confirmation, de-duplication across paths, degraded fallback, risk rules, contracts. Shared state, the queue consumer and dead letters, identity at ingress, the paged index. |
 | CI `audit-ai-service` | The tests twice (memory; emulators), E2A conformance (strict), the release gate on `evals/golden.json` |
 | CI `contracts` | The events settlement-service's tests produced satisfy the schema |
@@ -420,7 +424,7 @@ CI validates the events the Java tests really produce against the schema. The re
 | # | Item | Kind | Notes |
 |---|---|---|---|
 | G-1 | settlement-service trusts `X-Tenant-Id` and has public ingress with no authentication | Gap (security) | Add identity at ingress for Java (e2a-java has no ingress module yet), or Container Apps authentication plus a claims check; or make ingress internal and call it only from the other services |
-| G-2 | A settlement left in LEDGER_POSTED by a crash between T1 and T2/T3 is never finished or compensated | Gap (consistency) | A scheduled recovery: re-run clearing or compensate settlements older than a timeout |
+| G-2 | A settlement left in LEDGER_POSTED by a crash between T1 and T2/T3 was never finished or compensated | Fixed | `StuckSettlementRecovery` (Sections 8.1, 10). It relies on the clearing port answering the same for the same settlement id. Recovery also completes the client's idempotency record (from the key now stored on the settlement), so a retry replays the outcome. A crash before T1 commits leaves no settlement; that request's record stays IN_PROGRESS (`409` on retry), with no money moved. |
 | G-3 | `VelocityWindow` counts in process memory: per replica, lost on restart | Gap | Keep the window in the shared store, or count from the feed |
 | G-4 | `OutboxRelay` runs on every replica without a lock | Note | Correct (at-least-once, consumers de-duplicate), but duplicates are sent under scale-out; a lease or `SELECT ... FOR UPDATE SKIP LOCKED` would avoid them |
 | G-5 | `DB_URL` and the password secret are not set on the Container App by Terraform | Gap (deployment) | From the requirements' backlog; needed for a real deployment |
@@ -434,7 +438,7 @@ CI validates the events the Java tests really produce against the schema. The re
 
 | Area | Files |
 |---|---|
-| settlement-service | `src/main/java/com/subhamviky/settlement/**`, `src/main/resources/application*.yml`, `db/migration/V1__settlement_schema.sql`, `V2__ledger_adjustments.sql`, `pom.xml`, `infra/*.tf` |
+| settlement-service | `src/main/java/com/subhamviky/settlement/**`, `src/main/resources/application*.yml`, `db/migration/V1__settlement_schema.sql`, `V2__ledger_adjustments.sql`, `V3__settlement_recovery.sql`, `pom.xml`, `infra/*.tf` |
 | audit-ai-service | `src/audit_ai_service/**`, `policies/`, `evals/golden.json`, `pyproject.toml`, `infra/*.tf` |
 | Contracts | `contracts/events/settlement-event.v1.schema.json`, `examples/`, `tools/validate_samples.py` |
 | CI | `.github/workflows/settlement-ci.yml`, `aidlc-scaffold.yml` |

@@ -7,6 +7,7 @@ state "Settlement" as S {
   RECEIVED --> REJECTED : policy gate / funds / account
   LEDGER_POSTED --> COMPLETED : T2 cleared
   LEDGER_POSTED --> COMPENSATING : T3 declined / unavailable
+  LEDGER_POSTED --> LEDGER_POSTED : crash: recovery after stale-after\nre-asks clearing, then T2 or T3
   COMPENSATING --> COMPENSATED : reversal entries
   COMPLETED --> COMPLETED : adjustments (write-off, refund)
 }

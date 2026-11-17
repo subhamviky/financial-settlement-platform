@@ -36,6 +36,9 @@ settlement:
     write-off-account: ACC-WRITEOFF
   outbox:
     relay-interval-ms: 2000
+  recovery:
+    stale-after: PT2M                 # a settlement in LEDGER_POSTED this long is finished by recovery
+    interval-ms: 30000
 
 logging:
   pattern:
