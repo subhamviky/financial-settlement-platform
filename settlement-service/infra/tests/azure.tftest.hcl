@@ -54,3 +54,27 @@ run "outbox_only_logs_without_a_queue" {
     error_message = "Without a queue, the relay logs and audit-ai reads the feed."
   }
 }
+
+run "service_callers_are_verified_at_ingress" {
+  command = plan
+  assert {
+    condition = alltrue([for kv in ["E2A_IDENTITY_SOURCE=azure_container_apps", "E2A_IDENTITY_TENANTS_FROM_ROLES=tenant:"] :
+    contains([for e in azurerm_container_app.app.template[0].container[0].env : "${e.name}=${e.value}"], kv)])
+    error_message = "settlement-service must take its callers from Container Apps authentication, with tenants granted as roles"
+  }
+  assert {
+    condition     = contains([for e in azurerm_container_app.app.template[0].container[0].env : "${e.name}=${e.value}"], "E2A_IDENTITY_TRUSTED_ISSUERS=[\"https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/v2.0\"]")
+    error_message = "only the landscape directory's v2 issuer is trusted"
+  }
+}
+
+run "identity_can_be_switched_off_for_a_test_deployment" {
+  command = plan
+  variables {
+    identity_enabled = false
+  }
+  assert {
+    condition     = !contains([for e in azurerm_container_app.app.template[0].container[0].env : e.name], "E2A_IDENTITY_SOURCE")
+    error_message = "identity_enabled = false must leave identity off"
+  }
+}

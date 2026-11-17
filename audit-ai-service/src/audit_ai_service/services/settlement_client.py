@@ -11,17 +11,29 @@ class SettlementSource(Protocol):
 
 
 class HttpSettlementClient:
-    def __init__(self, base_url: str, timeout: float = 5.0) -> None:
-        self._http = httpx.Client(base_url=base_url, timeout=timeout)
+    """`credentials`: an E2A BaseCredentialProvider (e2a_adapters.workload) that adds audit-ai's own
+    token to each call (hub design note SI-01); None sends the tenant header only, as before."""
+
+    def __init__(self, base_url: str, timeout: float = 5.0, credentials=None, transport=None) -> None:
+        self._base = base_url.rstrip("/")
+        self._http = httpx.Client(base_url=base_url, timeout=timeout, transport=transport)
+        self._credentials = credentials
+
+    def _headers(self, tenant_id: str, path: str) -> Dict[str, str]:
+        headers = {"X-Tenant-Id": tenant_id}
+        if self._credentials is not None:
+            headers.update(self._credentials.headers(self._base + path))
+        return headers
 
     def events_after(self, tenant_id: str, after_sequence: int) -> Dict[str, Any]:
         r = self._http.get("/api/v1/events", params={"afterSequence": after_sequence, "limit": 100},
-                           headers={"X-Tenant-Id": tenant_id})
+                           headers=self._headers(tenant_id, "/api/v1/events"))
         r.raise_for_status()
         return r.json()
 
     def settlement(self, tenant_id: str, settlement_id: str) -> Optional[Dict[str, Any]]:
-        r = self._http.get(f"/api/v1/settlements/{settlement_id}", headers={"X-Tenant-Id": tenant_id})
+        path = f"/api/v1/settlements/{settlement_id}"
+        r = self._http.get(path, headers=self._headers(tenant_id, path))
         if r.status_code == 404:
             return None
         r.raise_for_status()

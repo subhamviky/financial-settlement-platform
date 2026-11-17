@@ -176,6 +176,14 @@ resource "azurerm_container_app" "app" {
         value = azurerm_servicebus_queue.events.name
       }
       # identity.tf: the caller comes from the claims Container Apps authentication verified
+      # workload.tf: settlement-service's URL, and audit-ai's own token on calls to it (SI-01)
+      dynamic "env" {
+        for_each = local.workload_env
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
       dynamic "env" {
         for_each = local.identity_env
         content {

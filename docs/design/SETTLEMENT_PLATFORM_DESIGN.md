@@ -9,7 +9,7 @@
 | Project | `financial-settlement-platform` — services `settlement-service` and `audit-ai-service` |
 | Document type | Design Document (HLD + LLD) |
 | Author | Subham Gupta, Principal Platform Architect |
-| Source baseline | `subhamviky/financial-settlement-platform` `main` at `a08e39e`:<ul><li>**settlement-service:** Java 21, Spring Boot 3.5.7, about 1,800 lines in 43 classes, Flyway V1–V3, `infra/*.tf`, 10 test classes. Built on **e2a-java 1.3.0** (`e2a-cqrs`, `e2a-spring-jpa`, `e2a-core`).</li><li>**audit-ai-service:** Python 3.12, FastAPI, about 900 lines, `infra/*.tf`, 11 test modules. Built on **E2A v1.7.5** and **e2a-adapters 1.7.5** `[azure]`.</li><li>**Shared:** `capability-oriented-dsa`; `contracts/events/`.</li></ul> |
+| Source baseline | `subhamviky/financial-settlement-platform` `main` at `a08e39e`:<ul><li>**settlement-service:** Java 21, Spring Boot 3.5.7, about 1,800 lines in 43 classes, Flyway V1–V3, `infra/*.tf`, 11 test classes. Built on **e2a-java 1.8.0** (`e2a-cqrs`, `e2a-spring-jpa`, `e2a-identity`, `e2a-core`).</li><li>**audit-ai-service:** Python 3.12, FastAPI, about 900 lines, `infra/*.tf`, 11 test modules. Built on **E2A v1.8.0** and **e2a-adapters 1.8.0** `[azure]`.</li><li>**Shared:** `capability-oriented-dsa`; `contracts/events/`; `landscape-identity/` (the Entra apps, roles and grants of service-to-service identity, hub design note SI-01).</li></ul> |
 | Date | 16 November 2026 |
 | Status | Describes the code on `main`. Section 14 lists where the code and the original requirements differ, and the open gaps. |
 
@@ -162,7 +162,7 @@ The requirements describe the first build. The code has moved on; Section 14 lis
 | **AI-DLC / P0** | Maven project, Dockerfile, Makefile, dev container, first tests (`aidlc/requests/settlement-service.json`) | Poetry project, FastAPI `main.py`, Dockerfile, first test (`aidlc/requests/audit-ai-service.json`) |
 | **G2C** | `SettlementPolicyAgent` skeleton | `SettlementAuditAgent` skeleton on the installed E2A |
 | **A2C** | Spec, Azure Terraform (Container App, Service Bus, Key Vault, Log Analytics) and its test, `NfrSupport` (breaker, retry), `Observability` | The same Terraform shape, release workflow |
-| **E2A** | **e2a-java 1.3.0:**<ul><li>`BaseOrchestrator`, `BaseCommandService`, `BaseQueryService`, `CqrsRequest`/`CqrsResult` (`e2a-cqrs`);</li><li>the JPA idempotency store (`e2a-spring-jpa`);</li><li>`BaseAgent` and `RequestContext` (`e2a-core`).</li></ul> | **E2A v1.7.5:**<ul><li>`BaseAgent`, `BaseRAGPipeline`, `SimulatedLLMService`;</li><li>`IdempotentConsumer` and `PhysicalOutcome`;</li><li>`ProjectReleaseGate`, identity at ingress, conformance.</li></ul> |
+| **E2A** | **e2a-java 1.8.0:**<ul><li>`BaseOrchestrator`, `BaseCommandService`, `BaseQueryService`, `CqrsRequest`/`CqrsResult` (`e2a-cqrs`);</li><li>the JPA idempotency store (`e2a-spring-jpa`);</li><li>`BaseAgent` and `RequestContext` (`e2a-core`);</li><li>`IdentityAtIngress` for service callers (`e2a-identity`).</li></ul> | **E2A v1.8.0:**<ul><li>`BaseAgent`, `BaseRAGPipeline`, `SimulatedLLMService`;</li><li>`IdempotentConsumer` and `PhysicalOutcome`;</li><li>`ProjectReleaseGate`, identity at ingress, conformance;</li><li>outbound workload identity (`e2a_adapters.workload`, managed identity).</li></ul> |
 | **e2a-adapters** | — | `[azure]`: `CosmosTransactionalStore`, `CosmosIdempotencyStore`, `CosmosLease`, `ServiceBusBroker`, `identity_at_ingress` (`azure_container_apps`) |
 | **e2a-managed-providers** | — (no model) | Optional. A profile can replace `build_audit_llm()` with a managed `llm_service` (for example `openai_azure` on Azure). The provider repository's CI runs audit-ai's suite on every profile. |
 | **DSA** | — | Governed `LOWER_BOUND` for risk bands; it refuses unsorted bands |
@@ -216,10 +216,18 @@ CI validates the events the Java tests really produce against the schema. The re
   - **Verification:** Container Apps authentication with Entra ID verifies every caller (`Return401`, `/health` excluded).
   - **Identity:** the service takes the caller from `X-MS-CLIENT-PRINCIPAL` only, through `identity_at_ingress`. The Entra directory is mapped to the deployment's tenant (`AUDIT_TENANT`), and a role can be required.
   - **Fail closed:** with identity enabled and authentication not configured, every `/audits` call is 401.
-- **settlement-service.** The API takes the tenant from the `X-Tenant-Id` header, and its ingress is external with no authentication configured. This is the most important open gap (G-1): any caller that can reach it can act for any tenant.
+- **settlement-service** (hub design note SI-01). Its callers are services: o2c-agent-service (Google Cloud), reconciliation-service (AWS) and audit-ai-service (Azure).
+  - **Verification:** Container Apps authentication with Entra ID (`Return401`, `/actuator/health` excluded) verifies each caller's Entra access token for the settlement app.
+  - **Authorization:** `ServiceIdentityFilter` resolves the verified claims with e2a-java's `IdentityAtIngress`. `X-Tenant-Id` must be one of the caller's granted tenants (app roles `tenant:<id>`). The route's action must be granted too: `POST /settlements` needs `settlement.submit`, `POST /settlements/{id}/adjustments` needs `settlement.adjust`, and every `GET` needs `settlement.read`.
+  - **Refusals:** no verified claims is `401`; anything not granted is `403`. Without `E2A_IDENTITY_SOURCE` (tests, local runs, the landscape demo) the headers are taken as given.
 - **Service-to-service.**
   - **Service Bus:** settlement-service → audit-ai uses managed identity (Data Sender on one queue).
-  - **HTTP:** audit-ai → settlement-service and reconciliation → settlement-service send `X-Tenant-Id` only.
+  - **HTTP:** each caller sends `Authorization: Bearer` with an Entra token from its own cloud's identity, exchanged without a secret (`e2a_adapters.workload`); audit-ai uses its managed identity.
+  - **Where the trust is defined:** `landscape-identity/` (Terraform, `azuread`) creates the receiver apps and roles, the callers' federated credentials (Google, AWS), and the grants:
+    - o2c: submit and read;
+    - reconciliation: adjust and read;
+    - audit-ai: read;
+    - each caller: its tenants.
 - **Secrets.** None in code or Terraform. Cosmos DB has local authentication off. The PostgreSQL admin password is a variable without a default.
 
 ### 5.7 Model access
@@ -387,7 +395,7 @@ CI validates the events the Java tests really produce against the schema. The re
 | Latency | Submission SLO 2.5 s (`BaseCommandService` logs breaches) |
 | Tenancy | Every repository query by tenant; the feed filtered by tenant; audit-ai's identity mapped to one tenant per deployment |
 | AI governance | Rules decide, the system of record confirms, the model explains; groundedness measured; release gate at 1.0 on the golden set |
-| Security | Managed identities for Service Bus and Cosmos DB; Cosmos local auth off; no secrets in code; settlement-service authentication open (G-1) |
+| Security | Managed identities for Service Bus and Cosmos DB; Cosmos local auth off; no secrets in code; service callers verified and granted per tenant and action (SI-01) |
 | Observability | Actuator health, info and Prometheus; `Observability` error counters; Log Analytics. audit-ai: standard logging. |
 | Scalability | settlement-service scales 0–3; audit-ai 1–3 with shared state. Velocity counts are per replica (G-3). |
 | Cost | Serverless Cosmos DB; scale-to-zero settlement-service; B1ms PostgreSQL for non-production |
@@ -407,13 +415,15 @@ CI validates the events the Java tests really produce against the schema. The re
 | `AUDIT_STATE_BACKEND`, `COSMOS_ENDPOINT`, `COSMOS_DATABASE`, `COSMOS_CONTAINER`, `COSMOS_KEY` | audit-ai | memory; —; audit; state; — | State ports (managed identity unless a key is set) |
 | `SERVICEBUS_NAMESPACE` or `SERVICEBUS_CONNECTION_STRING`, `SERVICEBUS_QUEUE` | audit-ai | unset; settlement-events | Queue consumer |
 | `E2A_IDENTITY_SOURCE`, `E2A_IDENTITY_TENANT_MAP`, `AUDIT_REQUIRED_ROLE` | audit-ai | set by `identity.tf` | Identity at ingress |
+| `E2A_IDENTITY_SOURCE`, `E2A_IDENTITY_TENANTS_FROM_ROLES`, `E2A_IDENTITY_TRUSTED_ISSUERS` | settlement | set by `identity.tf` (`identity_enabled`) | Service callers at ingress |
+| `E2A_WORKLOAD_IDENTITY`, `E2A_WORKLOAD_AZURE_CLIENT_ID`, `E2A_WORKLOAD_TOKEN_SCOPES`, `SETTLEMENT_API_URL` | audit-ai | set by `workload.tf` when `settlement_scope` is given | audit-ai's own token on calls to settlement-service |
 
 ## 13. Verification and Evidence
 
 | Evidence | What it proves |
 |---|---|
-| settlement-service tests (10 classes, 26 test methods; H2; the Service Bus publisher on the emulator in CI) | AC-1 to AC-8: completion, replay, conflict, policy and funds rejection, compensation, the feed, validation. Adjustments (write-off, refund, limits, concurrency, replay). Publisher selection. The policy agent's contract. |
-| audit-ai tests (11 modules, 35 test functions; again with Cosmos DB and Service Bus emulators, several replicas on one container) | AC-9 to AC-16: verdicts, confirmation, de-duplication across paths, degraded fallback, risk rules, contracts. Shared state, the queue consumer and dead letters, identity at ingress, the paged index. |
+| settlement-service tests (11 classes, 31 test methods; H2; the Service Bus publisher on the emulator in CI) | AC-1 to AC-8: completion, replay, conflict, policy and funds rejection, compensation, the feed, validation. Adjustments (write-off, refund, limits, concurrency, replay). Publisher selection. The policy agent's contract. Service callers: granted tenant and action served, no claims `401`, tenant or action not granted `403`, health open. |
+| audit-ai tests (12 modules, 37 test functions; again with Cosmos DB and Service Bus emulators, several replicas on one container) | AC-9 to AC-16: verdicts, confirmation, de-duplication across paths, degraded fallback, risk rules, contracts. Shared state, the queue consumer and dead letters, identity at ingress, the paged index. |
 | CI `audit-ai-service` | The tests twice (memory; emulators), E2A conformance (strict), the release gate on `evals/golden.json` |
 | CI `contracts` | The events settlement-service's tests produced satisfy the schema |
 | CI `terraform` | Both stacks: `fmt`, `validate`, `terraform test` with mock providers |
@@ -423,7 +433,8 @@ CI validates the events the Java tests really produce against the schema. The re
 
 | # | Item | Kind | Notes |
 |---|---|---|---|
-| G-1 | settlement-service trusts `X-Tenant-Id` and has public ingress with no authentication | Gap (security) | Add identity at ingress for Java (e2a-java has no ingress module yet), or Container Apps authentication plus a claims check; or make ingress internal and call it only from the other services |
+| G-1 | settlement-service trusted `X-Tenant-Id`, with public ingress and no authentication | Fixed (SI-01) | Entra-verified service callers, granted tenants and actions (Sections 5.6, 12). Ingress stays external because the callers are in other clouds. Not yet run against a live directory: the first deployment should check each call path once. |
+| G-10 | audit-ai's `SETTLEMENT_API_URL` was not set by Terraform | Fixed | `workload.tf` sets it with the token settings |
 | G-2 | A settlement left in LEDGER_POSTED by a crash between T1 and T2/T3 was never finished or compensated | Fixed | `StuckSettlementRecovery` (Sections 8.1, 10). It relies on the clearing port answering the same for the same settlement id. Recovery also completes the client's idempotency record (from the key now stored on the settlement), so a retry replays the outcome. A crash before T1 commits leaves no settlement; that request's record stays IN_PROGRESS (`409` on retry), with no money moved. |
 | G-3 | `VelocityWindow` counts in process memory: per replica, lost on restart | Gap | Keep the window in the shared store, or count from the feed |
 | G-4 | `OutboxRelay` runs on every replica without a lock | Note | Correct (at-least-once, consumers de-duplicate), but duplicates are sent under scale-out; a lease or `SELECT ... FOR UPDATE SKIP LOCKED` would avoid them |

@@ -17,3 +17,7 @@ Thumbs.db
 
 .env
 .venv/
+
+# Terraform working directories
+.terraform/
+.terraform.lock.hcl
