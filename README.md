@@ -37,7 +37,7 @@ Infrastructure: Azure, as Terraform only (Container Apps, Service Bus, Key Vault
 
 ## Design
 
-The full HLD and LLD of both services, with diagrams and a Word copy, is in [`docs/design/`](docs/design/SETTLEMENT_PLATFORM_DESIGN.md).
+The full HLD and LLD of both services, with diagrams and a PDF copy, is in [`docs/design/`](docs/design/SETTLEMENT_PLATFORM_DESIGN.md).
 
 ## Evidence
 
