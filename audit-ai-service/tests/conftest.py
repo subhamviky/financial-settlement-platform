@@ -97,4 +97,11 @@ def isolated_cosmos_container(monkeypatch):
     monkeypatch.setenv("COSMOS_DATABASE", "audit-test")
     monkeypatch.setenv("COSMOS_CONTAINER", container.id)
     yield
-    database.delete_container(container.id)
+    # Clean-up is best effort: the test has already passed or failed on its own. The Cosmos DB
+    # emulator (vnext-preview) intermittently refuses container deletion with an internal
+    # PostgresError (E58P01); that must not turn a passing test into an error.
+    try:
+        database.delete_container(container.id)
+    except Exception as error:                      # noqa: BLE001 - emulator-side fault
+        import warnings
+        warnings.warn(f"could not delete test container {container.id}: {error}", stacklevel=1)
