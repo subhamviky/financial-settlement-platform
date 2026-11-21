@@ -18,5 +18,8 @@ def test_a_wrong_decision_fails_the_gate(tmp_path):
     golden = json.loads((tmp_path / "evals" / "golden.json").read_text())
     golden[0]["expected"]["verdict"] = "FLAGGED"            # a 99.00 settlement is not a flag
     (tmp_path / "evals" / "golden.json").write_text(json.dumps(golden))
-    report = AuditReleaseGate(tmp_path, run_tests=False).run_pipeline(json.loads(CONFIG))
+    gate = AuditReleaseGate(tmp_path, run_tests=False)
+    report = gate.run_pipeline(json.loads(CONFIG))
     assert report["status"] == "FAILED" and "below threshold" in report["error"]
+    # E2A v1.9: the report says why the case failed, not only that it did
+    assert gate.evidence["evaluation"][0]["reasons"] == ["verdict CLEARED, expected FLAGGED"]
