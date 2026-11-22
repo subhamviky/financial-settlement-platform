@@ -53,7 +53,7 @@ jobs:
       - run: poetry run pytest -q
       - name: Start the Cosmos DB and Service Bus emulators
         run: |
-          docker run -d --name cosmos -p 8081:8081 mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview
+          docker run -d --name cosmos -p 8081:8081 mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator@sha256:db53613dae19d0a3d5ad50688d14aa6e957af082dafea56b52e1bd3a6b3f1406
           bash "$GITHUB_WORKSPACE/.github/start-servicebus-emulator.sh"
           for _ in $(seq 90); do docker logs cosmos 2>&1 | grep -q "Gateway=OK" && break; sleep 2; done
       - name: Tests again with the state in Cosmos DB, several replicas on one container, events from Service Bus

@@ -6,7 +6,8 @@ evaluation set, evals/golden.json: one settlement event per case, run through a 
 service against an in-process stand-in for settlement-service. A case scores 1.0 when the
 verdict, the risk band and the cited policies are the expected ones and, for a flag, the
 explanation is fully grounded in the retrieved policies and not degraded. Every case must
-score 1.0 (CONFIG below).
+score 1.0 (CONFIG below). Since E2A v1.9 each case is reported as an EvalOutcome naming
+what did not match (verdict, risk band, policies not cited, groundedness).
 
 No red-team set: the service takes no free text from users (dynamic_security NOT_CONFIGURED).
 Conformance runs strict: the v1.1 hooks the service still uses raise no R1, R2 or D1 finding.
@@ -18,6 +19,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from e2a.evals import EvalOutcome
 from e2a.release import ProjectReleaseGate, run_release_gate
 
 from ..models.events import SettlementEvent
@@ -71,13 +73,30 @@ class AuditReleaseGate(ProjectReleaseGate):
             if case.get("in_system_of_record", True):
                 source.record(event)
             finding = service.process(SettlementEvent.model_validate(copy.deepcopy(event)))
-        expected = case["expected"]
-        ok = (finding is not None and finding.verdict == expected["verdict"]
-              and finding.risk_band == expected["risk_band"]
-              and set(expected.get("policies", [])) <= set(finding.cited_policies))
-        if ok and finding.verdict == "FLAGGED":
-            ok = finding.groundedness == 1.0 and not finding.degraded
-        return 1.0 if ok else 0.0
+        return audit_outcome(finding, case["expected"])
+
+
+def audit_outcome(finding, expected: dict) -> EvalOutcome:
+    """E2A v1.9 (EV-01): the case's result as an EvalOutcome that names what did not match, so
+    the gate report says why a case failed. All or nothing: the decisions are deterministic."""
+    if finding is None:
+        return EvalOutcome(0.0, passed=False, grader="audit", reason="no finding was produced")
+    problems = []
+    if finding.verdict != expected["verdict"]:
+        problems.append(f"verdict {finding.verdict}, expected {expected['verdict']}")
+    if finding.risk_band != expected["risk_band"]:
+        problems.append(f"risk band {finding.risk_band}, expected {expected['risk_band']}")
+    missing = sorted(set(expected.get("policies", [])) - set(finding.cited_policies))
+    if missing:
+        problems.append(f"policies not cited: {missing}")
+    if not problems and finding.verdict == "FLAGGED":
+        if finding.groundedness != 1.0:
+            problems.append(f"explanation groundedness {finding.groundedness}, expected 1.0")
+        if finding.degraded:
+            problems.append("explanation degraded")
+    return EvalOutcome(0.0 if problems else 1.0, passed=not problems, grader="audit", reason="; ".join(problems),
+                       evidence={"verdict": finding.verdict, "risk_band": finding.risk_band,
+                                 "policies": sorted(finding.cited_policies), "groundedness": finding.groundedness})
 
 
 # The audit decisions are deterministic, so every case must be right: threshold 1.0, not

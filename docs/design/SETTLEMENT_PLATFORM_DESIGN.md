@@ -9,8 +9,8 @@
 | Project | `financial-settlement-platform` — services `settlement-service` and `audit-ai-service` |
 | Document type | Design Document (HLD + LLD) |
 | Author | Subham Gupta, Principal Platform Architect |
-| Source baseline | `subhamviky/financial-settlement-platform` `main` at `a08e39e`:<ul><li>**settlement-service:** Java 21, Spring Boot 3.5.7, about 1,800 lines in 43 classes, Flyway V1–V3, `infra/*.tf`, 11 test classes. Built on **e2a-java 1.8.0** (`e2a-cqrs`, `e2a-spring-jpa`, `e2a-identity`, `e2a-core`).</li><li>**audit-ai-service:** Python 3.12, FastAPI, about 900 lines, `infra/*.tf`, 11 test modules. Built on **E2A v1.8.0** and **e2a-adapters 1.8.0** `[azure]`.</li><li>**Shared:** `capability-oriented-dsa`; `contracts/events/`; `landscape-identity/` (the Entra apps, roles and grants of service-to-service identity, hub design note SI-01).</li></ul> |
-| Date | 16 November 2026 |
+| Source baseline | `subhamviky/financial-settlement-platform` `main` at `a08e39e`:<ul><li>**settlement-service:** Java 21, Spring Boot 3.5.7, about 1,800 lines in 43 classes, Flyway V1–V3, `infra/*.tf`, 11 test classes. Built on **e2a-java 1.9.1** (`e2a-cqrs`, `e2a-spring-jpa`, `e2a-identity`, `e2a-core`).</li><li>**audit-ai-service:** Python 3.12, FastAPI, about 900 lines, `infra/*.tf`, 11 test modules. Built on **E2A v1.9.1** and **e2a-adapters 1.9.1** `[azure]`.</li><li>**Shared:** `capability-oriented-dsa`; `contracts/events/`; `landscape-identity/` (the Entra apps, roles and grants of service-to-service identity, hub design note SI-01).</li></ul> |
+| Date | 21 November 2026 (E2A v1.9.1 and the release gate's evaluation outcomes; first issue 16 November 2026) |
 | Status | Describes the code on `main`. Section 14 lists where the code and the original requirements differ, and the open gaps. |
 
 ## 1. Introduction
@@ -162,7 +162,7 @@ The requirements describe the first build. The code has moved on; Section 14 lis
 | **AI-DLC / P0** | Maven project, Dockerfile, Makefile, dev container, first tests (`aidlc/requests/settlement-service.json`) | Poetry project, FastAPI `main.py`, Dockerfile, first test (`aidlc/requests/audit-ai-service.json`) |
 | **G2C** | `SettlementPolicyAgent` skeleton | `SettlementAuditAgent` skeleton on the installed E2A |
 | **A2C** | Spec, Azure Terraform (Container App, Service Bus, Key Vault, Log Analytics) and its test, `NfrSupport` (breaker, retry), `Observability` | The same Terraform shape, release workflow |
-| **E2A** | **e2a-java 1.8.0:**<ul><li>`BaseOrchestrator`, `BaseCommandService`, `BaseQueryService`, `CqrsRequest`/`CqrsResult` (`e2a-cqrs`);</li><li>the JPA idempotency store (`e2a-spring-jpa`);</li><li>`BaseAgent` and `RequestContext` (`e2a-core`);</li><li>`IdentityAtIngress` for service callers (`e2a-identity`).</li></ul> | **E2A v1.8.0:**<ul><li>`BaseAgent`, `BaseRAGPipeline`, `SimulatedLLMService`;</li><li>`IdempotentConsumer` and `PhysicalOutcome`;</li><li>`ProjectReleaseGate`, identity at ingress, conformance;</li><li>outbound workload identity (`e2a_adapters.workload`, managed identity).</li></ul> |
+| **E2A** | **e2a-java 1.9.1:**<ul><li>`BaseOrchestrator`, `BaseCommandService`, `BaseQueryService`, `CqrsRequest`/`CqrsResult` (`e2a-cqrs`);</li><li>the JPA idempotency store (`e2a-spring-jpa`);</li><li>`BaseAgent` and `RequestContext` (`e2a-core`);</li><li>`IdentityAtIngress` for service callers (`e2a-identity`).</li></ul> | **E2A v1.9.1:**<ul><li>`BaseAgent`, `BaseRAGPipeline`, `SimulatedLLMService`;</li><li>`IdempotentConsumer` and `PhysicalOutcome`;</li><li>`ProjectReleaseGate`, identity at ingress, conformance;</li><li>outbound workload identity (`e2a_adapters.workload`, managed identity).</li></ul> |
 | **e2a-adapters** | — | `[azure]`: `CosmosTransactionalStore`, `CosmosIdempotencyStore`, `CosmosLease`, `ServiceBusBroker`, `identity_at_ingress` (`azure_container_apps`) |
 | **e2a-managed-providers** | — (no model) | Optional. A profile can replace `build_audit_llm()` with a managed `llm_service` (for example `openai_azure` on Azure). The provider repository's CI runs audit-ai's suite on every profile. |
 | **DSA** | — | Governed `LOWER_BOUND` for risk bands; it refuses unsorted bands |
@@ -329,7 +329,7 @@ CI validates the events the Java tests really produce against the schema. The re
 | `SettlementAuditAgent` (`BaseAgent`) | `_apply_policy`: requires a tenant and at least one rule hit. `_build_messages`: the settlement, the hits, the retrieved policy paragraphs. `_evaluate_output`: groundedness = the share of cited policy ids that were retrieved. Below 0.5, or on an error, `_fallback`: a rule-only explanation marked `degraded`. |
 | `PolicyRAGPipeline` (`BaseRAGPipeline`) | Keyword index over policy paragraphs, keeping each paragraph's policy id and source file. A paragraph scores its word overlap with the query, plus 10 when its policy id is named. Rerank keeps the top 3. |
 | `PagedIndex` | Append with compare-and-set on the last page; opens a new page when full; reads back each id once |
-| `AuditReleaseGate` (`ProjectReleaseGate`) | Scores `evals/golden.json`: each case needs the right verdict, band and cited policies, and a flag must be grounded (1.0) and not degraded. Threshold 1.0. |
+| `AuditReleaseGate` (`ProjectReleaseGate`) | Scores `evals/golden.json`: each case needs the right verdict, band and cited policies, and a flag must be grounded (1.0) and not degraded. Threshold 1.0. Since E2A v1.9 each case is an `EvalOutcome` whose reason names what did not match (verdict, band, policies not cited, groundedness), so the gate report says why a case failed. |
 
 ### 8.3 HTTP APIs
 
