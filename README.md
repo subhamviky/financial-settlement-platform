@@ -33,7 +33,7 @@ This repository went through three stages. Each one is kept, so the path can be 
 
 Infrastructure: Azure, as Terraform only (Container Apps, Service Bus, Key Vault, PostgreSQL Flexible Server), tested against mock providers.
 
-**Its place in the landscape:** [order-to-cash-agentic-ai](https://github.com/subhamviky/order-to-cash-agentic-ai) submits settlements here; [aws-reconciliation-engine](https://github.com/subhamviky/aws-reconciliation-engine) reads the event feed, matches the bank statement against it, and posts accepted write-offs and refunds back to the ledger.
+**Its place in the landscape:** [order-to-cash-agentic-ai](https://github.com/subhamviky/order-to-cash-agentic-ai) submits settlements here; [payment-reconciliation-engine](https://github.com/subhamviky/payment-reconciliation-engine) reads the event feed, matches the bank statement against it, and posts accepted write-offs and refunds back to the ledger.
 
 ## Design
 
