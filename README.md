@@ -36,7 +36,8 @@ The platform runs on Google Cloud next to Azure. Configuration picks the cloud; 
 | Settlement events | Service Bus queue | Pub/Sub topic `settlement-events` (`PubSubEventPublisher`) |
 | audit-ai-service state | Cosmos DB | Firestore (`AUDIT_STATE_BACKEND=firestore`, collection `audit`) |
 | audit-ai-service events | Service Bus consumer | Pub/Sub push → `POST /pubsub/settlement-events` (`PubSubPushDelivery`, E2A v1.10.0), dead letters to `audit-settlement-events-dlq` |
-| Who may call | managed identities | Cloud Run IAM (`roles/run.invoker`); neither service is public |
+| Who may call | Container Apps authentication (Entra ID) | Cloud Run IAM (`roles/run.invoker`; neither service is public) verifies the caller's Google ID token, and the services read it (`E2A_IDENTITY_SOURCE=gcp_cloud_run`, E2A v1.11.0): the deployment grants each caller its tenants and roles (`identity_subject_roles`); audit-ai reads the event feed with its own ID token |
+| audit-ai model | E2A's simulated model | simulated, or Gemini through the Gemini Developer API's free tier (`E2A_PROVIDER_PROFILE=gemini_api`; the image built with `--build-arg POETRY_EXTRAS=gemini`) |
 
 Cloud Run gives a service CPU only while it handles a request, so nothing in it runs on a timer. That is why the relay runs after each request and on the scheduled call. settlement-service runs with `SPRING_PROFILES_ACTIVE=prod,gcp`. The values for a deployment are placeholders in [`deploy/gcp/binding.vars`](deploy/gcp/binding.vars) until the cloud account exists. CI tests the Pub/Sub publisher on the Pub/Sub emulator, runs audit-ai-service's tests again on the Firestore emulator, and plans both `infra/gcp` stacks against a mock provider.
 

@@ -13,6 +13,11 @@ Entra ID preset (tid, oid, roles). Configured by environment:
 
 This deployment audits one tenant (AUDIT_TENANT): the claims must resolve to it. Fail-closed
 when configured: no verified claims 401; another tenant or a missing role 403.
+
+Google Cloud, free tier (GCP-01, E2A v1.11.0): with E2A_IDENTITY_SOURCE=gcp_cloud_run, Cloud Run
+IAM has verified the caller's Google ID token and the service reads it from the headers. The token
+names only an email: the deployment grants each caller this tenant ("tenant:<id>") and its roles
+in E2A_IDENTITY_SUBJECT_ROLES (trusted issuer: E2A_IDENTITY_TRUSTED_ISSUERS).
 """
 import os
 
@@ -22,6 +27,9 @@ from fastapi import HTTPException, Request
 
 def _config() -> dict:
     from e2a_adapters.identity import preset
+    if os.getenv("E2A_IDENTITY_SOURCE") == "gcp_cloud_run":
+        return {"identity_source": "gcp_cloud_run", "identity_claim_map": preset("google_id_token"),
+                "identity_tenants_from_roles": "tenant:"}
     return {"identity_source": os.getenv("E2A_IDENTITY_SOURCE") or None,
             **({} if os.getenv("E2A_IDENTITY_CLAIM_MAP") else {"identity_claim_map": preset("entra_id")})}
 

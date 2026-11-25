@@ -44,3 +44,13 @@ run "never_public" {
 
   expect_failures = [var.invoker_members]
 }
+
+run "callers_and_calls_use_google_id_tokens" {
+  command = plan
+
+  assert {
+    condition = alltrue([for want in ["E2A_IDENTITY_SOURCE=gcp_cloud_run", "E2A_WORKLOAD_IDENTITY=gcp_id_token"] :
+    contains([for e in google_cloud_run_v2_service.app.template[0].containers[0].env : "${e.name}=${e.value != null ? e.value : ""}"], want)])
+    error_message = "Cloud Run IAM's ID token in; this service's own ID token out to settlement."
+  }
+}

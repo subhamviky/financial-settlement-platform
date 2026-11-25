@@ -78,3 +78,9 @@ variable "invoker_members" {
     error_message = "audit-ai-service is never public."
   }
 }
+
+variable "identity_subject_roles" {
+  type        = map(list(string))
+  description = "Who may call the API (GCP-01, E2A v1.11.0): each caller's email -> roles, this tenant as \"tenant:<id>\". Empty: nobody passes (Pub/Sub push does not go through it)."
+  default     = {}
+}
