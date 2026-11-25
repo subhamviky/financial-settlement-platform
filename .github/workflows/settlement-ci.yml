@@ -29,7 +29,7 @@ jobs:
       - name: Start the Service Bus and Pub/Sub emulators (the outbox relay's publishers are tested on them)
         run: |
           docker run -d --name pubsub -p 8681:8681 gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators \
-            gcloud emulators pubsub start --host-port=0.0.0.0:8681 --project=demo-settlement
+            gcloud beta emulators pubsub start --host-port=0.0.0.0:8681 --project=demo-settlement
           bash "$GITHUB_WORKSPACE/.github/start-servicebus-emulator.sh"
           ready=""
           for _ in $(seq 90); do docker logs pubsub 2>&1 | grep -q "Server started" && ready=yes && break; sleep 2; done
