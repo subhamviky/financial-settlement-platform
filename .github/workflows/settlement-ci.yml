@@ -28,14 +28,17 @@ jobs:
           mvn -B -q -f "$RUNNER_TEMP/e2a/java/pom.xml" install -DskipTests
       - name: Start the Service Bus and Pub/Sub emulators (the outbox relay's publishers are tested on them)
         run: |
-          docker run -d --name pubsub -p 8085:8085 gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators \
-            gcloud emulators pubsub start --host-port=0.0.0.0:8085
+          docker run -d --name pubsub -p 8681:8681 gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators \
+            gcloud emulators pubsub start --host-port=0.0.0.0:8681 --project=demo-settlement
           bash "$GITHUB_WORKSPACE/.github/start-servicebus-emulator.sh"
-          for _ in $(seq 90); do curl -s -o /dev/null http://127.0.0.1:8085/ && break; sleep 2; done
+          ready=""
+          for _ in $(seq 90); do docker logs pubsub 2>&1 | grep -q "Server started" && ready=yes && break; sleep 2; done
+          docker logs pubsub 2>&1 | tail -5
+          [ -n "$ready" ] || { echo "::error::the Pub/Sub emulator did not start"; exit 1; }
       - name: Build and test (Java 21, H2 in PostgreSQL mode; the Service Bus and Pub/Sub publishers on the emulators)
         env:
           SERVICEBUS_CONNECTION_STRING: "Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;"
-          PUBSUB_EMULATOR_HOST: 127.0.0.1:8085
+          PUBSUB_EMULATOR_HOST: 127.0.0.1:8681
         run: mvn -B verify
       - name: Keep the events the tests produced, for the contract check
         uses: actions/upload-artifact@v6
