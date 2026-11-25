@@ -16,11 +16,18 @@ write_files:
     permissions: "0755"
     content: |
       #!/bin/bash
-      set -euo pipefail
+      # Fetches the ledger password from Secret Manager into tmpfs. A new IAM grant can take a minute or two to
+      # reach the API, so it retries for about ten minutes; the reply is pretty-printed JSON ("data": "...").
+      set -u
       mkdir -p /run/ledger && chmod 700 /run/ledger
-      curl -sf -H "Authorization: Bearer $(/bin/bash /var/lib/ledger/token.sh)" \
-        "https://secretmanager.googleapis.com/v1/${password_secret}/versions/latest:access" \
-        | sed -E 's/.*"data":"([^"]+)".*/\1/' | base64 -d > /run/ledger/password
+      for attempt in $(seq 1 60); do
+        reply="$(curl -sf -H "Authorization: Bearer $(/bin/bash /var/lib/ledger/token.sh)" \
+          "https://secretmanager.googleapis.com/v1/${password_secret}/versions/latest:access")" && \
+        printf '%s' "$reply" | tr -d '\n' | sed -E 's/.*"data": *"([^"]+)".*/\1/' | tr '_-' '/+' \
+          | base64 -d > /run/ledger/password && [ -s /run/ledger/password ] && break
+        sleep 10
+      done
+      [ -s /run/ledger/password ] || { echo "ledger password could not be fetched" >&2; exit 1; }
       chmod 444 /run/ledger/password
   - path: /var/lib/ledger/start.sh
     permissions: "0755"
@@ -57,6 +64,7 @@ write_files:
       [Service]
       Type=oneshot
       RemainAfterExit=true
+      TimeoutStartSec=900
       ExecStart=/bin/bash /var/lib/ledger/secret.sh
   - path: /etc/systemd/system/ledger-db.service
     permissions: "0644"
