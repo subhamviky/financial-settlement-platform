@@ -22,6 +22,15 @@ provider "google" {
 }
 
 locals {
+  # GCP-01, E2A v1.11.0: Cloud Run IAM verifies each caller's Google ID token; e2a-java's
+  # ServiceIdentityFilter reads it (subject = email) and the deployment grants each caller its
+  # tenants ("tenant:<id>") and action roles (settlement.read, settlement.submit, settlement.adjust).
+  identity_env = {
+    E2A_IDENTITY_SOURCE             = "gcp_cloud_run"
+    E2A_IDENTITY_TRUSTED_ISSUERS    = jsonencode(["https://accounts.google.com"])
+    E2A_IDENTITY_TENANTS_FROM_ROLES = "tenant:"
+    E2A_IDENTITY_SUBJECT_ROLES      = jsonencode(var.identity_subject_roles)
+  }
   name   = "settlement-service"
   labels = { app = "settlement-service", landscape = "finance-ai", managed-by = "terraform" }
 }
@@ -91,13 +100,13 @@ resource "google_cloud_run_v2_service" "app" {
         }
       }
       dynamic "env" {
-        for_each = {
+        for_each = merge(local.identity_env, {
           SPRING_PROFILES_ACTIVE         = "prod,gcp"
           DB_URL                         = "jdbc:postgresql://${google_compute_address.ledger.address}:5432/settlement"
           DB_USER                        = "settlement"
           GOOGLE_CLOUD_PROJECT           = var.project_id
           SETTLEMENT_EVENTS_PUBSUB_TOPIC = google_pubsub_topic.events.name
-        }
+        })
         content {
           name  = env.key
           value = env.value
