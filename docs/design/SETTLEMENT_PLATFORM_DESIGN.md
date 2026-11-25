@@ -235,6 +235,26 @@ CI validates the events the Java tests really produce against the schema. The re
 - **audit-ai:** `build_audit_llm()` returns E2A's `SimulatedLLMService`, which writes a policy-citing explanation. A managed provider replaces it by profile, without code changes.
 - **settlement-service:** calls no model. Its agent is deterministic: `buildMessages` returns null, so the lifecycle has no model step.
 
+### 5.8 Deployment on Google Cloud, free tier (status: verified, 25 November 2026)
+
+The same two services also run in the Google Cloud trial project of the GenAI landscape (hub design note GCP-01), selected by the `gcp` Spring profile and `infra/gcp` stacks; Azure remains the reference deployment above. Everything is Always Free or trial credit; billing for 1 to 25 November was ₹0.00 of ₹28,569.00.
+
+| Service | Resources (`settlement-service/infra/gcp`, `audit-ai-service/infra/gcp`) |
+|---|---|
+| settlement-service | <ul><li>Cloud Run, 1 vCPU and 1 GiB, scaled to zero, CPU only during requests, Direct VPC egress to private ranges only; never public: `run.invoker` for the listed service accounts only.</li><li>The ledger: PostgreSQL 16 (`postgres:16-alpine`, mirrored into Artifact Registry) on an Always Free e2-micro Container-Optimized OS VM, no external address, Private Google Access, a firewall for the Cloud Run range and for IAP SSH; a daily `pg_dump` to Cloud Storage.</li><li>Secret Manager secret `settlement-db-password`: read by the VM at boot (cloud-init) and by Cloud Run as `DB_PASSWORD`.</li><li>Pub/Sub topic `settlement-events` (the outbox publisher); Cloud Scheduler job `POST /internal/jobs/maintenance` (outbox relay and stale-claim recovery, because Cloud Run has no CPU between requests).</li></ul> |
+| audit-ai-service | <ul><li>Cloud Run, 1 vCPU and 512 MiB, scaled to zero; Firestore (default database, collection `audit`) for findings and claims.</li><li>A Pub/Sub push subscription to `POST /pubsub/settlement-events` with its own invoker account, a dead-letter topic and its subscription.</li></ul> |
+
+Callers and identity. Each caller is a Google service account; Cloud Run IAM checks the Google ID token's signature and audience, and E2A's `gcp_cloud_run` source maps the verified e-mail to granted tenants and actions (`identity_subject_roles`): O2C `settlement.submit` and `settlement.read`; reconciliation `settlement.adjust` and `settlement.read`; audit-ai and the assistant read (the assistant also adjusts, after a second person approves). A token without an e-mail matches no grant (`403`).
+
+What the cloud run confirmed: an order paid through the ledger; the settlement event reached audit-ai through Pub/Sub push, was judged `CLEARED`, and a 150,000 EUR settlement was `FLAGGED`; a write-off of 2.50 EUR was posted once, read back, and the ledger balanced; a redelivered event added no second finding. What it found and fixed, which a document alone would not have shown:
+
+| Finding | Fix |
+|---|---|
+| The password was stored with a trailing newline: PostgreSQL strips one when it reads a password file, Cloud Run's secret reference does not, so the service was refused (`password authentication failed`) | store the secret without the newline; the runbook and guide say how |
+| The VM's cloud-init parsed Secret Manager's pretty-printed JSON reply with a one-line pattern and never wrote the password | parse the multi-line reply and retry the fetch (a 900-second start timeout) |
+| Cloud Run and the VM are created in parallel, so the first start can fail before the database listens | apply again after a minute; the start-up probe allows 24 failures |
+| `run.invoker` grants to service accounts of stacks not yet applied are refused | deployer only for the first round, full lists when all stacks exist |
+
 ## 6. Data Design
 
 ![Figure 4 — Data](images/10_data_model.png)
@@ -427,13 +447,14 @@ CI validates the events the Java tests really produce against the schema. The re
 | CI `audit-ai-service` | The tests twice (memory; emulators), E2A conformance (strict), the release gate on `evals/golden.json` |
 | CI `contracts` | The events settlement-service's tests produced satisfy the schema |
 | CI `terraform` | Both stacks: `fmt`, `validate`, `terraform test` with mock providers |
+| Google Cloud scenario (25 November 2026) | the `landscape-gcp` run against the deployed services: an order, its event through Pub/Sub, an audit flag, a write-off posted once to a balanced ledger, replays with no second posting and no second finding; every step passed in about 125 s (the report is in the assistant repository, `docs/EVALUATION_REPORT.md`) |
 | e2a-managed-providers CI, project-suites | audit-ai's suite on every managed-provider profile |
 
 ## 14. Gaps, Deviations and Backlog
 
 | # | Item | Kind | Notes |
 |---|---|---|---|
-| G-1 | settlement-service trusted `X-Tenant-Id`, with public ingress and no authentication | Fixed (SI-01) | Entra-verified service callers, granted tenants and actions (Sections 5.6, 12). Ingress stays external because the callers are in other clouds. Not yet run against a live directory: the first deployment should check each call path once. |
+| G-1 | settlement-service trusted `X-Tenant-Id`, with public ingress and no authentication | Fixed (SI-01) | Entra-verified service callers, granted tenants and actions (Sections 5.6, 12). Ingress stays external because the callers are in other clouds. Not yet run against a live Entra directory (Azure was not deployed). On Google Cloud the same model, with Cloud Run IAM and the Google ID token, has run live (Section 5.8). |
 | G-10 | audit-ai's `SETTLEMENT_API_URL` was not set by Terraform | Fixed | `workload.tf` sets it with the token settings |
 | G-2 | A settlement left in LEDGER_POSTED by a crash between T1 and T2/T3 was never finished or compensated | Fixed | `StuckSettlementRecovery` (Sections 8.1, 10). It relies on the clearing port answering the same for the same settlement id. Recovery also completes the client's idempotency record (from the key now stored on the settlement), so a retry replays the outcome. A crash before T1 commits leaves no settlement; that request's record stays IN_PROGRESS (`409` on retry), with no money moved. |
 | G-3 | `VelocityWindow` counts in process memory: per replica, lost on restart | Gap | Keep the window in the shared store, or count from the feed |
@@ -443,6 +464,8 @@ CI validates the events the Java tests really produce against the schema. The re
 | G-7 | `outbox_event.payload` is `varchar(4000)` | Limit | Long reasons could exceed it; `text` would remove the limit |
 | G-8 | audit-ai's settlement-service client had no circuit breaker or retry | Fixed | Reads are retried on transport failures and 5xx (jittered backoff, retry budget), never on 4xx, behind a circuit breaker that refuses at once during an outage (`settlement_client.py`) |
 | G-9 | `minReplicas` 0 for settlement-service: no relay runs while scaled to zero | Note | Events wait in the outbox until a request wakes a replica; set 1 if timeliness matters |
+| G-11 | The ledger VM is one machine with one disk, an Always Free e2-micro | Note | A VM failure stops settlement until it is replaced; the daily `pg_dump` bounds the loss; there is no standby. Acceptable for a demonstration landscape. |
+| G-12 | The first apply can fail while the VM boots (parallel creation) | Note | A second apply succeeds; an explicit wait would remove it |
 | D-1 | The requirements list the Service Bus publisher and durable findings as backlog | Done since | Implemented (Sections 5.4, 6) |
 
 ## Appendix A — Source files
