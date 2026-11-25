@@ -57,6 +57,6 @@ variable "invoker_members" {
 
 variable "identity_subject_roles" {
   type        = map(list(string))
-  description = "Who may call /api and what they may do (GCP-01, E2A v1.11.0): each caller's email -> roles, tenants as \"tenant:<id>\", e.g. {\"o2c-app@P.iam.gserviceaccount.com\" = [\"tenant:acme\", \"settlement.submit\", \"settlement.read\"]}. Empty: nobody passes."
+  description = "Who may call /api and what they may do (GCP-01, E2A v1.11.0): each caller's email -> roles, tenants as \"tenant:<id>\", e.g. {\"o2c-agent-service-dev@P.iam.gserviceaccount.com\" = [\"tenant:acme\", \"settlement.submit\", \"settlement.read\"]}. Empty: nobody passes."
   default     = {}
 }
