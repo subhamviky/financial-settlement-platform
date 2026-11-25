@@ -24,6 +24,22 @@ This repository went through three stages. Each one is kept, so the path can be 
 | AI audit with Spring AI inside the Java code | Python E2A agent with policy retrieval; the rules decide, the agent explains, the system of record confirms | E2A `BaseAgent`, `BaseRAGPipeline`; DSA `LOWER_BOUND` for risk bands |
 | Services and infrastructure written by hand | Generated from request files: Maven/Poetry projects, base classes, agent skeletons, Azure Terraform, NFR modules | AI-DLC pipeline (P0 + G2C + A2C) |
 
+## Google Cloud (free tier) — hub design note GCP-01
+
+The platform runs on Google Cloud next to Azure. Configuration picks the cloud; the code is the same:
+
+| | Azure (`*/infra`) | Google Cloud (`*/infra/gcp`) |
+|---|---|---|
+| Ledger (PostgreSQL) | Azure Database for PostgreSQL | PostgreSQL in a container on an Always Free e2-micro VM: no external IP, password from Secret Manager at boot, daily `pg_dump` to Cloud Storage |
+| settlement-service | Container Apps | Cloud Run (scale to zero), Direct VPC egress to the ledger VM |
+| Outbox relay | background timer | after each mutating request (`RelayAfterRequestFilter`), plus Cloud Scheduler every 10 minutes → `POST /internal/jobs/maintenance` (relay and stale-claim recovery) |
+| Settlement events | Service Bus queue | Pub/Sub topic `settlement-events` (`PubSubEventPublisher`) |
+| audit-ai-service state | Cosmos DB | Firestore (`AUDIT_STATE_BACKEND=firestore`, collection `audit`) |
+| audit-ai-service events | Service Bus consumer | Pub/Sub push → `POST /pubsub/settlement-events` (`PubSubPushDelivery`, E2A v1.10.0), dead letters to `audit-settlement-events-dlq` |
+| Who may call | managed identities | Cloud Run IAM (`roles/run.invoker`); neither service is public |
+
+Cloud Run gives a service CPU only while it handles a request, so nothing in it runs on a timer. That is why the relay runs after each request and on the scheduled call. settlement-service runs with `SPRING_PROFILES_ACTIVE=prod,gcp`. The values for a deployment are placeholders in [`deploy/gcp/binding.vars`](deploy/gcp/binding.vars) until the cloud account exists. CI tests the Pub/Sub publisher on the Pub/Sub emulator, runs audit-ai-service's tests again on the Firestore emulator, and plans both `infra/gcp` stacks against a mock provider.
+
 ## The project
 
 | Service | Stack | Role |

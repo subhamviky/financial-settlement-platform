@@ -14,6 +14,7 @@ from e2a_adapters.workload import workload_credentials
 from fastapi import FastAPI
 
 from .routers.audits import router as audits_router
+from .routers.pubsub import router as pubsub_router
 from .services.audit_service import AuditService
 from .services.llm import build_audit_llm
 from .services.policy_rag import PolicyRAGPipeline
@@ -42,7 +43,9 @@ async def lifespan(app: FastAPI):
     stop = threading.Event()
     service = app.state.audit_service
     worker = None
-    if service.broker is not None:
+    # AUDIT_EVENT_DELIVERY=push (Google Cloud, GCP-01): Pub/Sub pushes each event to
+    # POST /pubsub/settlement-events, so no background worker (Cloud Run allocates CPU per request)
+    if service.broker is not None and os.getenv("AUDIT_EVENT_DELIVERY", "pull") != "push":
         worker = threading.Thread(target=consume_forever, args=(service, stop), name="settlement-events",
                                   daemon=True)
         worker.start()
@@ -64,6 +67,7 @@ app.state.audit_service = AuditService(
     broker=_broker, queue=_queue, lease=_lease,
 )
 app.include_router(audits_router)
+app.include_router(pubsub_router)
 
 
 @app.get("/health")

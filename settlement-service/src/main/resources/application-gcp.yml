@@ -1,0 +1,17 @@
+# Google Cloud (hub design note GCP-01), with the prod profile: SPRING_PROFILES_ACTIVE=prod,gcp.
+# The ledger is PostgreSQL on the Always Free e2-micro VM, reached by Direct VPC egress
+# (DB_URL, DB_USER; DB_PASSWORD from Secret Manager); events go to Pub/Sub.
+settlement:
+  events:
+    pubsub:
+      topic: ${SETTLEMENT_EVENTS_PUBSUB_TOPIC:settlement-events}
+      project: ${GOOGLE_CLOUD_PROJECT}
+  outbox:
+    relay-after-request: true     # Cloud Run allocates CPU only during requests
+  jobs:
+    maintenance-endpoint: true    # Cloud Scheduler calls POST /internal/jobs/maintenance
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 3        # one small instance against a 1 GB VM
+      minimum-idle: 0
