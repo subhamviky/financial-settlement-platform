@@ -105,3 +105,13 @@ def isolated_cosmos_container(monkeypatch):
     except Exception as error:                      # noqa: BLE001 - emulator-side fault
         import warnings
         warnings.warn(f"could not delete test container {container.id}: {error}", stacklevel=1)
+
+
+@pytest.fixture(autouse=True)
+def isolated_firestore_collection(monkeypatch):
+    """With AUDIT_STATE_BACKEND=firestore (CI runs the suite again on the Firestore emulator,
+    hub design note GCP-01), each test gets its own collection: state is durable."""
+    import os
+    if os.getenv("AUDIT_STATE_BACKEND") == "firestore":
+        monkeypatch.setenv("AUDIT_FIRESTORE_COLLECTION", f"audit-{uuid.uuid4().hex[:10]}")
+    yield

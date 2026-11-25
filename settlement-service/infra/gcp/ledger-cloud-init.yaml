@@ -1,0 +1,95 @@
+#cloud-config
+# Container-Optimized OS: PostgreSQL in a container, its data on the stateful partition, the
+# password from Secret Manager (metadata-server token, Private Google Access), a daily pg_dump to
+# Cloud Storage. Rendered by Terraform (ledger_vm.tf). The logic is in scripts, not unit lines,
+# so no quoting passes through systemd.
+write_files:
+  - path: /var/lib/ledger/token.sh
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      # the VM service account's access token, from the metadata server
+      curl -sf -H "Metadata-Flavor: Google" \
+        http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token \
+        | sed -E 's/.*"access_token":"([^"]+)".*/\1/'
+  - path: /var/lib/ledger/secret.sh
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      mkdir -p /run/ledger && chmod 700 /run/ledger
+      curl -sf -H "Authorization: Bearer $(/bin/bash /var/lib/ledger/token.sh)" \
+        "https://secretmanager.googleapis.com/v1/${password_secret}/versions/latest:access" \
+        | sed -E 's/.*"data":"([^"]+)".*/\1/' | base64 -d > /run/ledger/password
+      chmod 444 /run/ledger/password
+  - path: /var/lib/ledger/start.sh
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      mkdir -p /mnt/stateful_partition/pgdata
+      export HOME=/var/lib/ledger            # the root filesystem is read-only on Container-Optimized OS
+      docker-credential-gcr configure-docker --registries="${registry_host}"   # the VM's service account
+      docker rm -f ledger-db >/dev/null 2>&1 || true
+      exec docker run --name ledger-db --rm -p 5432:5432 \
+        -v /mnt/stateful_partition/pgdata:/var/lib/postgresql/data \
+        -v /run/ledger/password:/run/secrets/db_password:ro \
+        -e POSTGRES_USER=settlement -e POSTGRES_DB=settlement -e POSTGRES_PASSWORD_FILE=/run/secrets/db_password \
+        --memory=600m "${postgres_image}" \
+        -c shared_buffers=64MB -c max_connections=30 -c work_mem=2MB
+  - path: /var/lib/ledger/backup.sh
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      name="settlement-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+      docker exec ledger-db pg_dump -U settlement settlement | gzip | \
+        curl -sf -X POST -H "Authorization: Bearer $(/bin/bash /var/lib/ledger/token.sh)" \
+          -H "Content-Type: application/gzip" --data-binary @- \
+          "https://storage.googleapis.com/upload/storage/v1/b/${backup_bucket}/o?uploadType=media&name=$name"
+  - path: /etc/systemd/system/ledger-secret.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Fetch the ledger password from Secret Manager into tmpfs
+      Wants=network-online.target
+      After=network-online.target
+      [Service]
+      Type=oneshot
+      RemainAfterExit=true
+      ExecStart=/bin/bash /var/lib/ledger/secret.sh
+  - path: /etc/systemd/system/ledger-db.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=PostgreSQL for settlement-service (the ledger)
+      Requires=ledger-secret.service docker.service
+      After=ledger-secret.service docker.service
+      [Service]
+      Restart=always
+      RestartSec=5
+      ExecStart=/bin/bash /var/lib/ledger/start.sh
+      ExecStop=/usr/bin/docker stop ledger-db
+      [Install]
+      WantedBy=multi-user.target
+  - path: /etc/systemd/system/ledger-backup.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=pg_dump of the ledger to Cloud Storage
+      [Service]
+      Type=oneshot
+      ExecStart=/bin/bash /var/lib/ledger/backup.sh
+  - path: /etc/systemd/system/ledger-backup.timer
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Daily ledger backup
+      [Timer]
+      OnCalendar=daily
+      Persistent=true
+      [Install]
+      WantedBy=timers.target
+runcmd:
+  - systemctl daemon-reload
+  - systemctl start ledger-secret.service ledger-db.service ledger-backup.timer

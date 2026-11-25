@@ -26,11 +26,16 @@ jobs:
           E2A="v$(sed -n 's:.*<e2a.version>\(.*\)</e2a.version>.*:\1:p' pom.xml)"
           git clone -q --depth 1 --branch "$E2A" https://github.com/subhamviky/e2a-framework.git "$RUNNER_TEMP/e2a"
           mvn -B -q -f "$RUNNER_TEMP/e2a/java/pom.xml" install -DskipTests
-      - name: Start the Service Bus emulator (the outbox relay's publisher is tested on it)
-        run: bash "$GITHUB_WORKSPACE/.github/start-servicebus-emulator.sh"
-      - name: Build and test (Java 21, H2 in PostgreSQL mode; the Service Bus publisher on the emulator)
+      - name: Start the Service Bus and Pub/Sub emulators (the outbox relay's publishers are tested on them)
+        run: |
+          docker run -d --name pubsub -p 8085:8085 gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators \
+            gcloud emulators pubsub start --host-port=0.0.0.0:8085
+          bash "$GITHUB_WORKSPACE/.github/start-servicebus-emulator.sh"
+          for _ in $(seq 90); do curl -s -o /dev/null http://127.0.0.1:8085/ && break; sleep 2; done
+      - name: Build and test (Java 21, H2 in PostgreSQL mode; the Service Bus and Pub/Sub publishers on the emulators)
         env:
           SERVICEBUS_CONNECTION_STRING: "Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;"
+          PUBSUB_EMULATOR_HOST: 127.0.0.1:8085
         run: mvn -B verify
       - name: Keep the events the tests produced, for the contract check
         uses: actions/upload-artifact@v6
@@ -63,6 +68,17 @@ jobs:
           COSMOS_ENDPOINT: http://127.0.0.1:8081
           # the emulator's published, well-known key (not a secret)
           COSMOS_KEY: C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==
+        run: poetry run pytest -q -rs
+      - name: Start the Firestore emulator (GCP-01)
+        run: |
+          docker run -d --name firestore -p 8086:8086 gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators \
+            gcloud emulators firestore start --host-port=0.0.0.0:8086
+          for _ in $(seq 90); do curl -s -o /dev/null http://127.0.0.1:8086/ && break; sleep 2; done
+      - name: Tests again with the state in Firestore (the Google Cloud binding, GCP-01)
+        env:
+          AUDIT_STATE_BACKEND: firestore
+          FIRESTORE_EMULATOR_HOST: 127.0.0.1:8086
+          GOOGLE_CLOUD_PROJECT: demo-audit
         run: poetry run pytest -q -rs
       - name: E2A conformance, strict (v1.3 makes R2 an error; design note V13-01)
         run: poetry run python -m e2a.conformance --strict src
@@ -99,9 +115,9 @@ jobs:
         with:
           terraform_version: "1.17.1"
           terraform_wrapper: false
-      - name: fmt, validate and test against mock providers (no Azure account)
+      - name: fmt, validate and test against mock providers (no Azure or Google Cloud account)
         run: |
-          for dir in settlement-service/infra audit-ai-service/infra landscape-identity; do
+          for dir in settlement-service/infra audit-ai-service/infra landscape-identity settlement-service/infra/gcp audit-ai-service/infra/gcp; do
             echo "== $dir"
             (cd "$dir" && terraform init -backend=false -input=false && terraform fmt -check -recursive && terraform validate && terraform test)
           done

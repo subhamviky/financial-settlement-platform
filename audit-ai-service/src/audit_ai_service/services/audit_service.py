@@ -10,7 +10,7 @@ memory by default, or in Cosmos DB (e2a-adapters, design note D-03), shared by e
 App replica, so an event is audited once and every replica lists the same findings.
 """
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from e2a import BaseDistributedLock, BaseIdempotencyStore, BaseMessageBroker, BaseTransactionalStore, InMemoryBroker
 from e2a_simulated_llm import SimulatedLLMService
@@ -83,6 +83,17 @@ class AuditService:
             return {"status": "DISABLED", "messages": []}
         config = {**CONSUMER_CONFIG, "consumer_wait_seconds": wait_seconds}
         return SettlementEventConsumer(self, self.broker, self.queue).consume(self.queue, config)
+
+    def consume_push(self, envelope: Dict) -> Tuple[int, Dict]:
+        """Google Cloud (GCP-01): settle one event Pub/Sub pushed (PubSubPushDelivery, E2A v1.10.0)
+        with the same consumer and claim as every other path. Returns (HTTP status, report): 204
+        when done (audited, a duplicate, or dead-lettered with its reason), 500 to be delivered again."""
+        if self.broker is None:
+            raise RuntimeError("no Pub/Sub broker configured (AUDIT_PUBSUB_SUBSCRIPTION, GOOGLE_CLOUD_PROJECT)")
+        from e2a_adapters.gcp import PubSubPushDelivery
+        delivery = PubSubPushDelivery(envelope, self.broker)          # ValueError: not a push envelope
+        report = SettlementEventConsumer(self, delivery, delivery.source).consume(delivery.source, CONSUMER_CONFIG)
+        return delivery.response_status(), report
 
     def reconcile_dead_letters(self) -> Dict:
         """Settle the queue's dead letters under the lease: confirmed ones are removed, never-applied
