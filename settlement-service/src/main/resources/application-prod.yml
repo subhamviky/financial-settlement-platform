@@ -6,3 +6,4 @@ spring:
 logging:
   level:
     root: WARN
+    com.subhamviky.settlement.api.CorrelationLogFilter: INFO   # one line per request, with the correlation id
