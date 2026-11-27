@@ -13,6 +13,7 @@ from pathlib import Path
 from e2a_adapters.workload import workload_credentials
 from fastapi import FastAPI
 
+from . import correlation
 from .routers.audits import router as audits_router
 from .routers.pubsub import router as pubsub_router
 from .services.audit_service import AuditService
@@ -58,6 +59,7 @@ async def lifespan(app: FastAPI):
 
 _broker, _queue, _lease = event_ports()
 app = FastAPI(title="audit-ai-service", lifespan=lifespan)
+correlation.install(app, "audit-ai-service")
 app.state.audit_service = AuditService(
     source=HttpSettlementClient(os.getenv("SETTLEMENT_API_URL", "http://localhost:8080"),
                                 credentials=workload_credentials()),       # SI-01: None unless configured
