@@ -15,3 +15,4 @@ spring:
     hikari:
       maximum-pool-size: 3        # one small instance against a 1 GB VM
       minimum-idle: 0
+      connection-timeout: 5000    # ms: with the ledger VM down a request fails after 5 s, not the 30 s default (drill 1)
