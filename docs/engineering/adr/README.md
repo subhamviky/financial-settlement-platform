@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-One record per significant decision (context, options, decision, consequences). Records are not edited to change history: a reversed decision gets a new record that supersedes the old one. These are the decisions of `settlement-service` and `audit-ai-service`. Platform-wide decisions (free tier, synthetic data, Workload Identity Federation, promotion, the documentation layout) are in the [assistant repository's ADR index](https://github.com/subhamviky/enterprise-finance-genai-assistant/blob/main/docs/engineering/adr/README.md).
+One record per significant decision (context, options, decision, consequences). Records are not edited to change history: a reversed decision gets a new record that supersedes the old one. These are the decisions of `settlement-service` and `audit-ai-service`. Platform-wide decisions (a real cloud rather than emulators only, synthetic data, Workload Identity Federation, promotion, the documentation layout) are in the [assistant repository's ADR index](https://github.com/subhamviky/enterprise-finance-genai-assistant/blob/main/docs/engineering/adr/README.md).
 
 Template: [`0000-template.md`](0000-template.md).
 
@@ -12,7 +12,7 @@ Template: [`0000-template.md`](0000-template.md).
 | [0004](0004-append-only-balanced-ledger-compensation-by.md) | An append-only, balanced ledger; compensation by new entries | Accepted |
 | [0005](0005-limits-adjustments-enforced-inside-locked.md) | Limits on adjustments enforced inside the locked transaction (forced version increment) | Accepted |
 | [0006](0006-rules-decide-agent-explains-system-record.md) | The rules decide, the agent explains, the system of record confirms (the audit AI never decides or moves money) | Accepted |
-| [0007](0007-postgresql-container-always-free-e2-micro-vm.md) | PostgreSQL in a container on an Always Free e2-micro VM for the ledger on Google Cloud | Accepted |
+| [0007](0007-postgresql-container-vm-for-ledger-google.md) | PostgreSQL in a container on a VM for the ledger on Google Cloud | Accepted |
 | [0008](0008-settlement-events-go-pub-sub-topic-audit-ai.md) | Settlement events go to a Pub/Sub topic; audit-ai receives them by push with a dead-letter subscription | Accepted |
 | [0009](0009-recover-settlement-left-ledger-posted-by-crash.md) | Recover a settlement left LEDGER_POSTED by a crash (StuckSettlementRecovery) | Accepted |
 | [0010](0010-cloud-run-iam-verifies-caller-deployment.md) | Cloud Run IAM verifies the caller; the deployment grants tenants and roles | Accepted |

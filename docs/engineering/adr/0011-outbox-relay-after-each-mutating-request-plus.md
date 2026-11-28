@@ -14,7 +14,7 @@ A) minReplicas 1. B) Relay after each mutating request (`RelayAfterRequestFilter
 
 ## Decision
 
-B, using one of the account's three free Scheduler jobs.
+B, using a Cloud Scheduler job.
 
 ## Consequences
 

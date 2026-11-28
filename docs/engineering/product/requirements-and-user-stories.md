@@ -13,4 +13,4 @@ Traced requirements are in the design document (section 2); here are the users' 
 | S7 | auditor | risky settlements explained with grounded text | I can see why | the rules decide; the explanation cites policy; degraded when the model fails |
 | S8 | operator | recovery from a stopped database, a paused feed, a lost backup | outages are routine | 40 s, 10 s, 31 s as recorded in the drills |
 
-Non-functional: private by default with verified identity; a request fails fast when the database is down (5 s); free tier only. Out of scope: real money, multi-currency conversion, a user interface.
+Non-functional: private by default with verified identity; a request fails fast when the database is down (5 s). Out of scope: real money, multi-currency conversion, a user interface.

@@ -6,7 +6,7 @@
 
 ## Context
 
-The platform was first built for Azure (Container Apps, Service Bus, Cosmos DB) and later run on Google Cloud's free tier.
+The platform was first built for Azure (Container Apps, Service Bus, Cosmos DB) and later run on Google Cloud.
 
 ## Options considered
 

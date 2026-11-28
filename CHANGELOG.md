@@ -14,7 +14,7 @@ Newest first. Format: [Keep a Changelog](https://keepachangelog.com). Released b
 
 ## 25 November 2026 (GCP-01)
 ### Added
-- Google Cloud free-tier deployment: PostgreSQL on an Always Free VM with daily backups, Pub/Sub events with push delivery to the audit service, Firestore audit state, Cloud Run IAM identity.
+- Google Cloud deployment: PostgreSQL on a VM with daily backups, Pub/Sub events with push delivery to the audit service, Firestore audit state, Cloud Run IAM identity.
 
 ## Earlier
 - The completed project rebuilt from the architectural spike on the E2A and A2C frameworks; see the README.
